@@ -116,7 +116,7 @@ cclint에서 **"Rule" = 린트 체크**(ESLint식). 우리 설계에서 **"Rule"
  "version": "2.1.0",
  "runs": [{
    "tool": { "driver": {
-     "name": "ail", "informationUri": "…",
+     "name": "ruleward", "informationUri": "…",
      "rules": [   // 우리 Check 카탈로그
        { "id": "conflict/setting-collision", "name": "SettingCollision",
          "shortDescription": { "text": "동일 설정 키가 상충하는 값으로 지정됨" },
@@ -133,7 +133,7 @@ cclint에서 **"Rule" = 린트 체크**(ESLint식). 우리 설계에서 **"Rule"
        "relatedLocations": [ { "physicalLocation": { "artifactLocation": { "uri": ".cursor/rules/style.mdc" },
                                                       "region": { "startLine": 4 } },
                               "message": { "text": "상충하는 다른 룰" } } ],
-       "partialFingerprints": { "ail/v1": "<stable-hash>" },   // 런-간 안정 ID(noise 억제)
+       "partialFingerprints": { "ruleward/v1": "<stable-hash>" },   // 런-간 안정 ID(noise 억제)
        "properties": { "confidence": 0.99, "engine": "conflict" } },
 
      // 드리프트(Code→Rule): 코드의 폐기 심볼을 relatedLocation으로

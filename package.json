@@ -1,10 +1,10 @@
 {
-  "name": "ail",
+  "name": "ruleward",
   "version": "0.0.0",
-  "description": "Agent instruction file linter & validator — Phase 0: Instruction IR parser",
+  "description": "Lint AI agent rule files (AGENTS.md, CLAUDE.md, Cursor rules) for conflicts, duplication, bloat, and drift from your code.",
   "type": "module",
   "bin": {
-    "ail": "src/cli.ts"
+    "ruleward": "src/cli.ts"
   },
   "exports": {
     ".": "./src/index.ts"

@@ -43,7 +43,7 @@ export async function runBench(): Promise<BenchReport> {
   const totals = { tp: 0, fp: 0, fn: 0, negativeFp: 0, errorFp: 0, cases: 0 };
 
   for (const c of CASES) {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'ail-bench-'));
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'ruleward-bench-'));
     try {
       for (const [rel, content] of Object.entries(c.files)) {
         const abs = path.join(dir, rel);

@@ -30,7 +30,7 @@ describe('toSarif', () => {
 
   it('produces a valid SARIF 2.1.0 envelope', () => {
     expect(s['version']).toBe('2.1.0');
-    expect(s['runs'][0].tool.driver.name).toBe('ail');
+    expect(s['runs'][0].tool.driver.name).toBe('ruleward');
     expect(s['runs'][0].tool.driver.version).toBe('1.2.3');
     expect(s['runs'][0].tool.driver.rules).toHaveLength(2);
   });
@@ -40,7 +40,7 @@ describe('toSarif', () => {
     expect(results[0].ruleId).toBe('conflict/setting-collision');
     expect(results[0].level).toBe('error');
     expect(results[1].level).toBe('note');
-    expect(results[0].partialFingerprints['ail/v1']).toBe('abc123');
+    expect(results[0].partialFingerprints['ruleward/v1']).toBe('abc123');
   });
 
   it('maps related → relatedLocations and auto fix → fixes', () => {

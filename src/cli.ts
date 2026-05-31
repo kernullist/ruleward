@@ -43,8 +43,8 @@ function printSummary(parsed: ParsedFile[]): void {
 
 const program = new Command();
 program
-  .name('ail')
-  .description('Agent instruction file linter — Phase 0 (Instruction IR parser)')
+  .name('ruleward')
+  .description('Lint AI agent rule files (AGENTS.md, CLAUDE.md, Cursor rules) for conflicts, duplication, bloat, and code drift.')
   .version('0.0.0');
 
 program

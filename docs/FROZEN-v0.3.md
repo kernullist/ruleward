@@ -167,7 +167,7 @@ DESIGN §12의 제품 결정을 기본값으로 동결(사용자가 override 가
 | 출력 | **SARIF 2.1.0(주) + pretty CLI + JSON** | code-scanning 직결 |
 | 진단 모델 | **구조화 Diagnostic**(§2) | felix Violation 채택, carl string[] 회피 |
 | 설정 파일 | `.ailrc.json` (+ JS/TS config로 프로그래매틱 Check) | cclint 관례 |
-| 명칭 | 작업명 `ail` 유지, 최종명 TBD(낮은 우선순위) | — |
+| 명칭 | `ruleward`로 확정 | — |
 
 ---
 

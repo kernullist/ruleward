@@ -8,7 +8,7 @@ const LEVEL: Record<Severity, 'error' | 'warning' | 'note'> = {
   info: 'note',
 };
 
-const INFO_URI = 'https://github.com/kernullist/agent_instruction_lint';
+const INFO_URI = 'https://github.com/kernullist/ruleward';
 
 function physical(l: DiagLoc): Record<string, unknown> {
   const region: Record<string, unknown> = {};
@@ -38,7 +38,7 @@ export function toSarif(diagnostics: Diagnostic[], toolVersion = '0.0.0'): Recor
       level: LEVEL[d.severity],
       message: { text: d.message },
       locations: [physical(d.location)],
-      partialFingerprints: { 'ail/v1': d.fingerprint },
+      partialFingerprints: { 'ruleward/v1': d.fingerprint },
       properties: { confidence: d.confidence, engine: d.engine },
     };
     if (d.related?.length) {
@@ -63,7 +63,7 @@ export function toSarif(diagnostics: Diagnostic[], toolVersion = '0.0.0'): Recor
     version: '2.1.0',
     runs: [
       {
-        tool: { driver: { name: 'ail', version: toolVersion, informationUri: INFO_URI, rules } },
+        tool: { driver: { name: 'ruleward', version: toolVersion, informationUri: INFO_URI, rules } },
         results,
       },
     ],
