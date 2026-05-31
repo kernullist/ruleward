@@ -57,13 +57,18 @@ export function checkBloat(ctx: AnalysisContext): Diagnostic[] {
 
   // 토큰 예산
   let alwaysTotal = 0;
+  let alwaysFiles = 0;
   for (const f of ctx.files) {
     if (f.file.scope.loading !== 'always') continue;
+    alwaysFiles++;
     const t = f.instructions.reduce((s, i) => s + i.tokens, 0);
     alwaysTotal += t;
     if (t > FILE_BUDGET) out.push(budgetDiag(f.file.relPath, t, FILE_BUDGET, 'file'));
   }
-  if (alwaysTotal > ALWAYS_BUDGET) out.push(budgetDiag('(always-on 합계)', alwaysTotal, ALWAYS_BUDGET, 'aggregate'));
+  // 합계 진단은 always-on 파일이 둘 이상일 때만 — 단일 파일이면 per-file 진단이 곧 합계라 중복.
+  if (alwaysFiles > 1 && alwaysTotal > ALWAYS_BUDGET) {
+    out.push(budgetDiag('(always-on 합계)', alwaysTotal, ALWAYS_BUDGET, 'aggregate'));
+  }
 
   // 모호 룰
   for (const ins of ctx.instructions) {

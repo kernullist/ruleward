@@ -2,16 +2,18 @@
 
 AGENTS.md / CLAUDE.md / Cursor rules 등 **AI 에이전트 룰파일**의 충돌·중복·과대화·코드드리프트를 분석하고 수정을 제안하는 린터 & 검증기.
 
-> **상태: Phase 0 완료 + Phase 1 일부 — IR 파서 + 결정론 Check(충돌·중복·과대화·드리프트·코드드리프트) + tree-sitter 정밀 인덱스 + SARIF 2.1.0 + GitHub Actions.** (vitest 63개 통과)
-> 코드 드리프트(Code→Rule): **tree-sitter AST**(web-tree-sitter 0.22.6 + tree-sitter-wasms; ts/tsx/js/py/go)로 폐기 심볼을 정확히 귀속해 **가드 룰 누락**(헤드라인)을 탐지 — 오귀속·문자열 리터럴 오탐 제거. 미지원 언어·파싱 실패는 정규식 폴백.
-> 다음: 로컬 ML(임베딩 근접중복·NLI 자연어 모순) + `drift/stale-symbol`(평가 하니스 선행).
+> **상태: Phase 0 완료 + Phase 1 일부 — IR 파서 + 결정론 Check(충돌·중복·과대화·드리프트·코드드리프트) + tree-sitter 정밀 인덱스 + SARIF 2.1.0 + 평가 하니스 + GitHub Actions.** (vitest 66개 통과)
+> 코드 드리프트(Code→Rule): **tree-sitter AST**(web-tree-sitter 0.22.6 + tree-sitter-wasms; ts/tsx/js/py/go)로 폐기 심볼을 정확히 귀속해 **가드 룰 누락**(헤드라인)을 탐지. 미지원 언어·파싱 실패는 정규식 폴백.
+> **평가 하니스**: planted-fault 20케이스에서 precision/recall **100%**, clean 프로젝트 FP **0**, error 오탐 **0** (`npm run bench`).
+> 다음: 로컬 ML(임베딩 근접중복·NLI 모순) / `drift/stale-symbol` — 이제 하니스로 FP를 수치 관리하며 안전하게 추가 가능.
 > 설계 배경: [DESIGN.md](DESIGN.md) · [docs/DEEP-DIVE.md](docs/DEEP-DIVE.md) · [docs/FROZEN-v0.3.md](docs/FROZEN-v0.3.md)(구현 계약).
 
 ## 빠른 시작
 
 ```bash
 npm install
-npm test                                       # vitest (63 tests)
+npm test                                       # vitest (66 tests)
+npm run bench                                  # planted-fault 벤치마크 (precision/recall/FP)
 npm run typecheck                              # tsc --noEmit
 npx tsx src/cli.ts parse test/fixtures         # 룰파일/디렉토리 → Instruction IR 요약
 npx tsx src/cli.ts check test/fixtures         # 5개 엔진 진단 (pretty)
@@ -54,6 +56,7 @@ src/
   report/
     sarif.ts               Diagnostic[] → SARIF 2.1.0
     pretty.ts              CLI 텍스트 출력
+  bench/                   planted-fault 벤치마크 (cases·run·report·main)
   index.ts                 공개 API (parseRoot, analyzePath, toSarif 등)
   cli.ts                   ail parse / discover / check (commander)
 ```
@@ -83,6 +86,10 @@ src/
 ## Instruction IR (요약)
 
 각 Instruction: `id, source{file,line,headingPath}, raw, normalized, directive(MUST/…/INFO), polarity, atomicity(atomic/compound/narrative), fromCompound, scope{globs,loading,dirBoundary}, category, settingKV{key,value,confType}|null, codeReferents[{kind,value,confidence}], tokens`. 전체 정의는 [`src/types.ts`](src/types.ts).
+
+## 평가 (planted-fault 벤치마크)
+
+`npm run bench` — 각 check마다 결함을 심은 합성 프로젝트 + clean(음성) 케이스를 임시 디렉토리에 실체화해 분석하고 precision/recall/F1·FP를 집계한다(DEEP-DIVE §D). **게이팅 임계: clean FP=0, error 오탐=0, recall≥0.85.** 현재 20케이스에서 precision/recall 100%·FP 0. CI에서도 실행되어 회귀를 막고, 향후 ML·`drift/stale-symbol`을 켤 때 FP를 수치로 검증하는 안전장치다. (실제로 도입 첫 실행에서 token-budget 이중보고 버그를 잡았다.)
 
 ## 알려진 v1 한계 (의도된 것)
 
