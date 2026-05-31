@@ -2,6 +2,7 @@ import type { AnalysisContext } from '../src/analyze/context';
 import type { ConfigFacts } from '../src/analyze/configFacts';
 import type { RuleFile, Scope, ParsedFile } from '../src/types';
 import { parseInstructions } from '../src/parse/parseFile';
+import type { CodeIndex } from '../src/codeindex/scan';
 
 export function emptyConfig(over: Partial<ConfigFacts> = {}): ConfigFacts {
   return {
@@ -26,13 +27,14 @@ export function parsedFile(body: string, scope: Scope = BROAD, relPath = 'AGENTS
 
 export function makeCtx(
   files: ParsedFile[],
-  opts: { config?: Partial<ConfigFacts>; exists?: (p: string) => boolean } = {}
+  opts: { config?: Partial<ConfigFacts>; exists?: (p: string) => boolean; codeIndex?: CodeIndex } = {}
 ): AnalysisContext {
   return {
     root: '/',
     files,
     instructions: files.flatMap((f) => f.instructions),
     config: emptyConfig(opts.config),
+    codeIndex: opts.codeIndex,
     exists: opts.exists ?? ((): boolean => false),
   };
 }

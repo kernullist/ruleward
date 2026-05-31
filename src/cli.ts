@@ -83,8 +83,9 @@ program
   .argument('<path>', '룰파일 또는 디렉토리')
   .option('--format <fmt>', 'pretty | sarif | json', 'pretty')
   .option('--max-level <lvl>', 'exit≠0 기준 (error|warning|info)', 'error')
-  .action(async (pathArg: string, opts: { format?: string; maxLevel?: string }) => {
-    const { diagnostics } = await analyzePath(pathArg);
+  .option('--no-code-scan', '코드 인덱스(드리프트 Code→Rule) 스캔 비활성화')
+  .action(async (pathArg: string, opts: { format?: string; maxLevel?: string; codeScan?: boolean }) => {
+    const { diagnostics } = await analyzePath(pathArg, { scan: opts.codeScan });
     if (opts.format === 'sarif') console.log(JSON.stringify(toSarif(diagnostics), null, 2));
     else if (opts.format === 'json') console.log(JSON.stringify(diagnostics, null, 2));
     else console.log(formatDiagnostics(diagnostics));

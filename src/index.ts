@@ -20,6 +20,8 @@ export { extractConfigFacts, type ConfigFacts } from './analyze/configFacts';
 export { scopeRelation, type ScopeRel } from './analyze/scopeRel';
 export { toSarif } from './report/sarif';
 export { formatDiagnostics } from './report/pretty';
+export { buildCodeIndex, scanText, type CodeIndex, type CodeSymbol } from './codeindex/scan';
+export { checkCodeDrift } from './analyze/engines/codedrift';
 
 import { discover } from './discovery/discover';
 import { parseInstructions } from './parse/parseFile';

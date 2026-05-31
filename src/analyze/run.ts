@@ -9,10 +9,11 @@ import { checkConflicts } from './engines/conflict';
 import { checkDuplication } from './engines/duplication';
 import { checkBloat } from './engines/bloat';
 import { checkDrift } from './engines/drift';
+import { checkCodeDrift } from './engines/codedrift';
 
-/** 4개 Engine 실행 → 심각도·신뢰도 내림차순 정렬. */
+/** Engine 실행 → 심각도·신뢰도 내림차순 정렬. */
 export function runChecks(ctx: AnalysisContext): Diagnostic[] {
-  return [checkConflicts, checkDuplication, checkBloat, checkDrift]
+  return [checkConflicts, checkDuplication, checkBloat, checkDrift, checkCodeDrift]
     .flatMap((fn) => fn(ctx))
     .sort((a, b) => SEVERITY_LEVEL[b.severity] - SEVERITY_LEVEL[a.severity] || b.confidence - a.confidence);
 }
@@ -24,7 +25,7 @@ export interface AnalyzeResult {
 }
 
 /** 파일 또는 디렉토리 경로 → 분석 결과. 파일이면 그 디렉토리를 root(설정 컨텍스트)로. */
-export async function analyzePath(target: string): Promise<AnalyzeResult> {
+export async function analyzePath(target: string, opts: { scan?: boolean } = {}): Promise<AnalyzeResult> {
   const st = await stat(target).catch(() => null);
   let root: string;
   let files: ParsedFile[];
@@ -37,7 +38,7 @@ export async function analyzePath(target: string): Promise<AnalyzeResult> {
     const file = await loadFile(target, root);
     files = [{ file, instructions: parseInstructions(file) }];
   }
-  const ctx = await buildContext(root, files);
+  const ctx = await buildContext(root, files, { scan: opts.scan });
   return { root, files, diagnostics: runChecks(ctx) };
 }
 

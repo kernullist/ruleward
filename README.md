@@ -2,8 +2,9 @@
 
 AGENTS.md / CLAUDE.md / Cursor rules 등 **AI 에이전트 룰파일**의 충돌·중복·과대화·코드드리프트를 분석하고 수정을 제안하는 린터 & 검증기.
 
-> **상태: Phase 0 구현 완료 — Discovery + Instruction IR 파서 + 결정론 Check 엔진 4종 + SARIF 2.1.0 출력.** (vitest 45개 통과)
-> 다음: 로컬 ML 계층(임베딩 중복·NLI 충돌) + tree-sitter 코드 인덱스(드리프트 심화·deprecation 디텍터).
+> **상태: Phase 0 완료 + Phase 1 일부 — IR 파서 + 결정론 Check 5종(코드 드리프트 포함) + SARIF 2.1.0.** (vitest 53개 통과)
+> 코드 드리프트(Code→Rule): `@deprecated`·`[Obsolete]`·`#[deprecated]` 등 폐기 마커를 스캔해 **가드 룰 누락**(헤드라인 기능)을 탐지 — 정규식 부트스트랩.
+> 다음: 로컬 ML(임베딩 중복·NLI 충돌) + tree-sitter 정밀 인덱스.
 > 설계 배경: [DESIGN.md](DESIGN.md) · [docs/DEEP-DIVE.md](docs/DEEP-DIVE.md) · [docs/FROZEN-v0.3.md](docs/FROZEN-v0.3.md)(구현 계약).
 
 ## 빠른 시작
@@ -45,7 +46,8 @@ src/
     context.ts             AnalysisContext (instructions + config + exists)
     scopeRel.ts            스코프 부분순서 (오버라이드 vs 버그 판정)
     run.ts                 analyzePath: discover→parse→buildContext→runChecks
-    engines/{conflict,duplication,bloat,drift}.ts   4개 Check 엔진
+    engines/{conflict,duplication,bloat,drift,codedrift}.ts   5개 Check 엔진
+  codeindex/scan.ts        deprecation 디텍터 (Code→Rule 드리프트 입력, 정규식 v1)
   report/
     sarif.ts               Diagnostic[] → SARIF 2.1.0
     pretty.ts              CLI 텍스트 출력
@@ -67,6 +69,8 @@ src/
 | drift | `stale-command` | error | package.json scripts에 없는 명령 |
 | drift | `stale-dependency` | warning | 미설치 프레임워크 명시 |
 | drift | `broken-alias` | warning | tsconfig paths/의존성에 없는 별칭 |
+| drift | `missing-guard-rule` | info | 코드의 `@deprecated` 심볼을 막는 룰이 없음 (+ 룰 초안 제안) — **헤드라인** |
+| drift | `deprecated-symbol-recommended` | warning | 룰이 deprecated 심볼 사용을 권장/허용 |
 
 `ail check <path> --format sarif|json|pretty --max-level error|warning|info` — `--max-level` 이상 심각도가 있으면 exit code 1 (CI 게이팅). 결정론 검사만 `error` 승격(FP 억제).
 
