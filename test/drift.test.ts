@@ -36,4 +36,25 @@ describe('drift engine', () => {
     });
     expect(checkDrift(ctx).some((d) => d.checkId === 'drift/broken-alias')).toBe(true);
   });
+
+  it('stale-symbol when a referenced symbol is not declared', () => {
+    const ctx = makeCtx([parsedFile('- Always use `LegacyService` for requests.\n')], {
+      codeIndex: { deprecated: [], declaredNames: new Set(['CurrentService']), fileCount: 1 },
+    });
+    expect(checkDrift(ctx).some((d) => d.checkId === 'drift/stale-symbol')).toBe(true);
+  });
+
+  it('no stale-symbol when the symbol is declared', () => {
+    const ctx = makeCtx([parsedFile('- Always use `CurrentService` for requests.\n')], {
+      codeIndex: { deprecated: [], declaredNames: new Set(['CurrentService']), fileCount: 1 },
+    });
+    expect(checkDrift(ctx).some((d) => d.checkId === 'drift/stale-symbol')).toBe(false);
+  });
+
+  it('no stale-symbol for builtin globals', () => {
+    const ctx = makeCtx([parsedFile('- Wrap async work in `Promise`.\n')], {
+      codeIndex: { deprecated: [], declaredNames: new Set(['helper']), fileCount: 1 },
+    });
+    expect(checkDrift(ctx).some((d) => d.checkId === 'drift/stale-symbol')).toBe(false);
+  });
 });

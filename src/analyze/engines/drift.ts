@@ -17,6 +17,18 @@ const PM_BUILTIN = new Set([
   'why', 'dedupe', 'store', 'test', 'start', 'help',
 ]);
 
+// stale-symbol 오탐 억제용 전역/빌트인 PascalCase 식별자 denylist.
+const BUILTIN_SYMBOLS = new Set([
+  'Object', 'Array', 'String', 'Number', 'Boolean', 'Symbol', 'BigInt', 'Function', 'Promise',
+  'Map', 'Set', 'WeakMap', 'WeakSet', 'Date', 'RegExp', 'JSON', 'Math', 'Reflect', 'Proxy',
+  'Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'EvalError', 'URIError', 'AggregateError',
+  'ArrayBuffer', 'SharedArrayBuffer', 'DataView', 'Int8Array', 'Uint8Array', 'Uint8ClampedArray',
+  'Int16Array', 'Uint16Array', 'Int32Array', 'Uint32Array', 'Float32Array', 'Float64Array', 'BigInt64Array', 'BigUint64Array',
+  'Buffer', 'Blob', 'File', 'FormData', 'URL', 'URLSearchParams', 'Request', 'Response', 'Headers',
+  'Event', 'EventTarget', 'AbortController', 'AbortSignal', 'TextEncoder', 'TextDecoder',
+  'Console', 'Intl', 'Atomics', 'WebSocket', 'Worker', 'Iterator', 'Generator', 'AsyncGenerator',
+]);
+
 function looksLikePath(p: string): boolean {
   if (/^(\.\.?\/|\/|~\/)/.test(p)) return true;
   if (/\.\w{1,6}(\/|$)/.test(p)) return true;
@@ -110,6 +122,38 @@ function staleDepDiag(ins: Instruction, value: string): Diagnostic {
   };
 }
 
+function staleSymbolBase(value: string): string {
+  const head = value.split('.')[0] ?? value;
+  return head.split('<')[0] ?? head;
+}
+
+/** 룰이 참조하는 심볼이 코드베이스에 없는가. PascalCase + 인덱스 존재 시에만(고FP 억제). */
+function isStaleSymbol(value: string, ctx: AnalysisContext): boolean {
+  const idx = ctx.codeIndex;
+  if (!idx || idx.declaredNames.size === 0) return false; // 인덱스 없음 → 검증 불가 → 보류
+  const base = staleSymbolBase(value);
+  if (!/^[A-Z][A-Za-z0-9]*$/.test(base)) return false; // PascalCase 한정
+  if (BUILTIN_SYMBOLS.has(base)) return false;
+  if (idx.declaredNames.has(base)) return false;
+  for (const d of ctx.config.deps) {
+    if (d === base || d.startsWith(`${base}/`) || d.endsWith(`/${base}`)) return false;
+  }
+  return true;
+}
+
+function staleSymbolDiag(ins: Instruction, ref: CodeReferent): Diagnostic {
+  return {
+    checkId: 'drift/stale-symbol',
+    engine: 'drift',
+    severity: 'warning',
+    confidence: 0.6,
+    message: `룰이 참조하는 심볼 \`${ref.value}\`를 코드베이스에서 찾을 수 없음(이름 변경·삭제 가능)`,
+    location: { file: ins.source.file, line: ins.source.line },
+    fix: { kind: 'manual', description: '심볼명을 현재 코드에 맞게 수정하거나 룰 제거' },
+    fingerprint: fingerprint(['drift/stale-symbol', ins.id, ref.value]),
+  };
+}
+
 export function checkDrift(ctx: AnalysisContext): Diagnostic[] {
   const out: Diagnostic[] = [];
   for (const ins of ctx.instructions) {
@@ -123,6 +167,8 @@ export function checkDrift(ctx: AnalysisContext): Diagnostic[] {
         if (script && !PM_BUILTIN.has(script) && !ctx.config.scripts.has(script)) {
           out.push(staleCmdDiag(ins, ref, script));
         }
+      } else if (ref.kind === 'symbol' && ref.confidence >= 0.7) {
+        if (isStaleSymbol(ref.value, ctx)) out.push(staleSymbolDiag(ins, ref));
       }
     }
 

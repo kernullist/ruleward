@@ -160,6 +160,24 @@ export const CASES: BenchCase[] = [
     files: { 'src/client.ts': DEPRECATED_TS, 'AGENTS.md': '# R\n\n- Always use `OldClient` for requests.\n' },
     expect: [{ checkId: 'drift/deprecated-symbol-recommended', contains: 'OldClient' }],
   },
+  {
+    name: 'drift/stale-symbol (rule references a removed symbol)',
+    engine: 'drift',
+    files: { 'src/svc.ts': 'export class CurrentService {}\n', 'AGENTS.md': '# R\n\n- Always use `LegacyService` for requests.\n' },
+    expect: [{ checkId: 'drift/stale-symbol', contains: 'LegacyService' }],
+  },
+  {
+    name: 'drift stale-symbol negative (symbol exists)',
+    engine: 'negative',
+    files: { 'src/svc.ts': 'export class CurrentService {}\n', 'AGENTS.md': '# R\n\n- Always use `CurrentService` for requests.\n' },
+    expect: [],
+  },
+  {
+    name: 'drift stale-symbol negative (builtin global)',
+    engine: 'negative',
+    files: { 'src/svc.ts': 'export const helper = 1;\n', 'AGENTS.md': '# R\n\n- Wrap async work in `Promise`.\n' },
+    expect: [],
+  },
 
   // ---------- clean project (no-noise-bomb) ----------
   {

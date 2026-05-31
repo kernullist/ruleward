@@ -19,6 +19,7 @@ export interface CodeSymbol {
 
 export interface CodeIndex {
   deprecated: CodeSymbol[];
+  declaredNames: Set<string>; // 코드베이스의 모든 선언 식별자 (stale-symbol 검사용; tree-sitter 인덱싱 시에만 채워짐)
   fileCount: number;
 }
 
@@ -134,6 +135,7 @@ export async function buildCodeIndex(root: string): Promise<CodeIndex> {
   const capped = files.slice(0, MAX_FILES);
   const pool = await getRuntime(); // tree-sitter 풀(없으면 null → 정규식 폴백)
   const deprecated: CodeSymbol[] = [];
+  const declaredNames = new Set<string>();
   for (const rel of capped) {
     let content: string;
     try {
@@ -142,10 +144,16 @@ export async function buildCodeIndex(root: string): Promise<CodeIndex> {
       continue;
     }
     if (content.length > 2_000_000) continue;
-    if (!FAST_SKIP.test(content)) continue; // 마커 없는 파일은 스캔 생략
     const relUnix = rel.replace(/\\/g, '/');
-    const tsSyms = pool ? scanWithRuntime(pool, content, relUnix) : null;
-    for (const s of tsSyms ?? scanText(content, relUnix)) deprecated.push(s); // null → 정규식 폴백
+    const r = pool ? scanWithRuntime(pool, content, relUnix) : null;
+    if (r) {
+      // tree-sitter: 지원 언어는 항상 파싱(폐기 + 선언 인덱스 수집)
+      for (const s of r.deprecated) deprecated.push(s);
+      for (const n of r.declared) declaredNames.add(n);
+    } else if (FAST_SKIP.test(content)) {
+      // 미지원 언어/파싱 실패 → 정규식 폴백(폐기 마커만, 선언 인덱스 없음)
+      for (const s of scanText(content, relUnix)) deprecated.push(s);
+    }
   }
-  return { deprecated, fileCount: capped.length };
+  return { deprecated, declaredNames, fileCount: capped.length };
 }

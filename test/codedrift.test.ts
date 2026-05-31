@@ -34,6 +34,7 @@ describe('scanText (deprecation detector)', () => {
 
 const idxWith = (name: string, replacement?: string): CodeIndex => ({
   deprecated: [{ name, file: 'src/x.ts', line: 3, deprecated: true, replacement }],
+  declaredNames: new Set([name]),
   fileCount: 1,
 });
 

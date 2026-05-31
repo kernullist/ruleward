@@ -142,8 +142,13 @@ function extOf(file: string): string {
   return (file.split('.').pop() ?? '').toLowerCase();
 }
 
-/** 지원 ext면 CodeSymbol[](없으면 []), 미지원/파싱실패면 null(→ 정규식 폴백). */
-export function scanWithRuntime(pool: TsPool, content: string, file: string): CodeSymbol[] | null {
+export interface ScanResult {
+  deprecated: CodeSymbol[];
+  declared: string[]; // 모든 선언 식별자 (stale-symbol 인덱스용)
+}
+
+/** 지원 ext면 ScanResult, 미지원/파싱실패면 null(→ 정규식 폴백). */
+export function scanWithRuntime(pool: TsPool, content: string, file: string): ScanResult | null {
   const ext = extOf(file);
   const parser = pool.parsers.get(ext);
   if (!parser) return null;
@@ -152,13 +157,14 @@ export function scanWithRuntime(pool: TsPool, content: string, file: string): Co
     const tree = parser.parse(content);
     if (!tree) return null;
     const root = tree.rootNode;
-    const out: CodeSymbol[] = [];
+    const deprecated: CodeSymbol[] = [];
+    const declared: string[] = [];
     const seen = new Set<string>();
     const push = (name: string, line: number, note: string): void => {
       const key = `${name}:${line}`;
       if (seen.has(key)) return;
       seen.add(key);
-      out.push({ name, file, line, deprecated: true, note: note || undefined, replacement: parseReplacement(note) });
+      deprecated.push({ name, file, line, deprecated: true, note: note || undefined, replacement: parseReplacement(note) });
     };
 
     for (const c of root.descendantsOfType('comment')) {
@@ -178,7 +184,12 @@ export function scanWithRuntime(pool: TsPool, content: string, file: string): Co
       }
     }
 
-    return out;
+    for (const d of root.descendantsOfType([...DECL_TYPES])) {
+      const n = declName(d);
+      if (n) declared.push(n);
+    }
+
+    return { deprecated, declared };
   } catch {
     return null;
   }
