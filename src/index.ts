@@ -21,6 +21,7 @@ export { scopeRelation, type ScopeRel } from './analyze/scopeRel';
 export { toSarif } from './report/sarif';
 export { formatDiagnostics } from './report/pretty';
 export { buildCodeIndex, scanText, type CodeIndex, type CodeSymbol } from './codeindex/scan';
+export { getRuntime, scanWithRuntime } from './codeindex/treesitter';
 export { checkCodeDrift } from './analyze/engines/codedrift';
 
 import { discover } from './discovery/discover';

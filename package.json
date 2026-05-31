@@ -25,7 +25,9 @@
     "mdast-util-to-string": "^4.0.0",
     "remark-parse": "^11.0.0",
     "tinyglobby": "^0.2.10",
+    "tree-sitter-wasms": "^0.1.13",
     "unified": "^11.0.5",
+    "web-tree-sitter": "^0.22.6",
     "zod": "^3.23.8"
   },
   "devDependencies": {

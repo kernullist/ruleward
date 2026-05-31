@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { glob } from 'tinyglobby';
+import { getRuntime, scanWithRuntime } from './treesitter';
 
 /**
  * 코드 인덱스 v1 — deprecation 디텍터 (DEEP-DIVE §C.4).
@@ -91,7 +92,7 @@ function findName(lines: string[], start: number): string | null {
   return null;
 }
 
-function parseReplacement(note: string | undefined): string | undefined {
+export function parseReplacement(note: string | undefined): string | undefined {
   if (!note) return undefined;
   const pats = [
     /use\s+`?([\w.$]+)`?\s+instead/i,
@@ -131,6 +132,7 @@ export function scanText(content: string, file: string): CodeSymbol[] {
 export async function buildCodeIndex(root: string): Promise<CodeIndex> {
   const files = await glob(CODE_GLOBS, { cwd: root, ignore: IGNORE, dot: false, absolute: false });
   const capped = files.slice(0, MAX_FILES);
+  const pool = await getRuntime(); // tree-sitter 풀(없으면 null → 정규식 폴백)
   const deprecated: CodeSymbol[] = [];
   for (const rel of capped) {
     let content: string;
@@ -140,8 +142,10 @@ export async function buildCodeIndex(root: string): Promise<CodeIndex> {
       continue;
     }
     if (content.length > 2_000_000) continue;
-    if (!FAST_SKIP.test(content)) continue; // 마커 없는 파일은 라인 스캔 생략
-    for (const s of scanText(content, rel.replace(/\\/g, '/'))) deprecated.push(s);
+    if (!FAST_SKIP.test(content)) continue; // 마커 없는 파일은 스캔 생략
+    const relUnix = rel.replace(/\\/g, '/');
+    const tsSyms = pool ? scanWithRuntime(pool, content, relUnix) : null;
+    for (const s of tsSyms ?? scanText(content, relUnix)) deprecated.push(s); // null → 정규식 폴백
   }
   return { deprecated, fileCount: capped.length };
 }

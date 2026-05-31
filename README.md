@@ -2,16 +2,16 @@
 
 AGENTS.md / CLAUDE.md / Cursor rules 등 **AI 에이전트 룰파일**의 충돌·중복·과대화·코드드리프트를 분석하고 수정을 제안하는 린터 & 검증기.
 
-> **상태: Phase 0 완료 + Phase 1 일부 — IR 파서 + 결정론 Check(충돌·중복·과대화·드리프트·코드드리프트) + SARIF 2.1.0 + GitHub Actions.** (vitest 59개 통과)
-> 코드 드리프트(Code→Rule): `@deprecated`·`[Obsolete]`·`#[deprecated]` 등 폐기 마커를 **주석/어노테이션 맥락에서** 스캔해 **가드 룰 누락**(헤드라인)을 탐지.
-> tree-sitter 정밀 인덱스는 보류 — web-tree-sitter 0.26 ↔ tree-sitter-wasms 0.1.13 ABI 불일치(현재는 정규식 스캐너로 대체). 다음: 로컬 ML(임베딩 중복·NLI 충돌).
+> **상태: Phase 0 완료 + Phase 1 일부 — IR 파서 + 결정론 Check(충돌·중복·과대화·드리프트·코드드리프트) + tree-sitter 정밀 인덱스 + SARIF 2.1.0 + GitHub Actions.** (vitest 63개 통과)
+> 코드 드리프트(Code→Rule): **tree-sitter AST**(web-tree-sitter 0.22.6 + tree-sitter-wasms; ts/tsx/js/py/go)로 폐기 심볼을 정확히 귀속해 **가드 룰 누락**(헤드라인)을 탐지 — 오귀속·문자열 리터럴 오탐 제거. 미지원 언어·파싱 실패는 정규식 폴백.
+> 다음: 로컬 ML(임베딩 근접중복·NLI 자연어 모순) + `drift/stale-symbol`(평가 하니스 선행).
 > 설계 배경: [DESIGN.md](DESIGN.md) · [docs/DEEP-DIVE.md](docs/DEEP-DIVE.md) · [docs/FROZEN-v0.3.md](docs/FROZEN-v0.3.md)(구현 계약).
 
 ## 빠른 시작
 
 ```bash
 npm install
-npm test                                       # vitest (59 tests)
+npm test                                       # vitest (63 tests)
 npm run typecheck                              # tsc --noEmit
 npx tsx src/cli.ts parse test/fixtures         # 룰파일/디렉토리 → Instruction IR 요약
 npx tsx src/cli.ts check test/fixtures         # 5개 엔진 진단 (pretty)
@@ -48,7 +48,9 @@ src/
     scopeRel.ts            스코프 부분순서 (오버라이드 vs 버그 판정)
     run.ts                 analyzePath: discover→parse→buildContext→runChecks
     engines/{conflict,duplication,bloat,drift,codedrift}.ts   5개 Check 엔진
-  codeindex/scan.ts        deprecation 디텍터 (Code→Rule 드리프트 입력, 정규식 v1)
+  codeindex/
+    treesitter.ts          tree-sitter AST 정밀 deprecation (web-tree-sitter 0.22.6)
+    scan.ts                정규식 폴백 스캐너 + 코드 인덱스 빌더
   report/
     sarif.ts               Diagnostic[] → SARIF 2.1.0
     pretty.ts              CLI 텍스트 출력
