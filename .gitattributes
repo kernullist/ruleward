@@ -1,0 +1,4 @@
+# 모든 텍스트 파일은 LF로 정규화 (크로스플랫폼 일관성)
+* text=auto eol=lf
+*.png binary
+*.jpg binary

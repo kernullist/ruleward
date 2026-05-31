@@ -1,0 +1,10 @@
+---
+description: TypeScript style rules
+globs:
+  - "src/**/*.ts"
+alwaysApply: false
+---
+
+- Prefer `async/await` over raw promises.
+- Avoid using `var`.
+- Use 2-space indentation.

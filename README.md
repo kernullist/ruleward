@@ -1,0 +1,84 @@
+# ail — agent instruction lint
+
+AGENTS.md / CLAUDE.md / Cursor rules 등 **AI 에이전트 룰파일**의 충돌·중복·과대화·코드드리프트를 분석하고 수정을 제안하는 린터 & 검증기.
+
+> **상태: Phase 0 구현 완료 — Discovery + Instruction IR 파서 + 결정론 Check 엔진 4종 + SARIF 2.1.0 출력.** (vitest 45개 통과)
+> 다음: 로컬 ML 계층(임베딩 중복·NLI 충돌) + tree-sitter 코드 인덱스(드리프트 심화·deprecation 디텍터).
+> 설계 배경: [DESIGN.md](DESIGN.md) · [docs/DEEP-DIVE.md](docs/DEEP-DIVE.md) · [docs/FROZEN-v0.3.md](docs/FROZEN-v0.3.md)(구현 계약).
+
+## 빠른 시작
+
+```bash
+npm install
+npm test                                  # vitest (45 tests)
+npm run typecheck                         # tsc --noEmit
+npx tsx src/cli.ts parse test/fixtures    # 룰파일/디렉토리 → Instruction IR 요약
+npx tsx src/cli.ts check test/fixtures    # 4개 엔진 진단 (pretty)
+npx tsx src/cli.ts check test/fixtures --format sarif   # GitHub code scanning용
+npx tsx src/cli.ts discover .             # 룰파일 탐색만
+```
+
+`parse` 출력 예: `L7 SHOULD/style/atomic 5tok kv=style.indent=tab` — 라인·directive·category·atomicity·토큰·settingKV·codeReferents를 한 줄로.
+
+## 무엇이 구현됐나 (Phase 0)
+
+`룰파일 → 파싱 → Instruction[]`(Instruction IR) → 4개 Check Engine → `Diagnostic[]` → SARIF/pretty.
+
+```
+src/
+  types.ts                 Instruction IR / Diagnostic 타입 (FROZEN §2)
+  tokens.ts                토큰 카운트 (gpt-tokenizer)
+  discovery/discover.ts    멀티포맷 탐색 + RuleFile 구성 (AGENTS/CLAUDE/.mdc/copilot/windsurf/cline)
+  parse/
+    markdown.ts            remark/mdast → 룰 후보 블록 (인라인 코드 백틱 보존)
+    atomize.ts             블록 → 원자 클로즈 분할(복문 분리)
+    parseFile.ts           오케스트레이터: 블록 → Instruction[]
+  extract/
+    modality.ts            directive/polarity 추출 (Modality 사전 v1, en/ko · FROZEN §4)
+    settingkv.ts           settingKV 온톨로지 v1 (24키 · FROZEN §3)
+    referents.ts           코드 referent 추출 (신뢰도 부착, 백틱 우선)
+    scope.ts               globs/loading/dirBoundary 유도
+    category.ts            Galster taxonomy 분류
+  diagnostics.ts           Diagnostic/Severity/fingerprint (FROZEN §2)
+  analyze/
+    configFacts.ts         package.json/tsconfig/prettier/.editorconfig → fact
+    context.ts             AnalysisContext (instructions + config + exists)
+    scopeRel.ts            스코프 부분순서 (오버라이드 vs 버그 판정)
+    run.ts                 analyzePath: discover→parse→buildContext→runChecks
+    engines/{conflict,duplication,bloat,drift}.ts   4개 Check 엔진
+  report/
+    sarif.ts               Diagnostic[] → SARIF 2.1.0
+    pretty.ts              CLI 텍스트 출력
+  index.ts                 공개 API (parseRoot, analyzePath, toSarif 등)
+  cli.ts                   ail parse / discover / check (commander)
+```
+
+## Checks (Phase 0, 결정론)
+
+| Engine | Check | 심각도 | 설명 |
+|---|---|---|---|
+| conflict | `setting-collision` | error | 같은 스코프에서 settingKV 값 충돌 (탭 vs 스페이스 등) |
+| conflict | `scoped-override` | info | 더 구체적 스코프가 상위를 오버라이드 (의도 확인) |
+| conflict | `prohibit-vs-require` | error | 같은 import 대상이 금지+권장 동시 지정 |
+| duplication | `redundant-with-config` | warning | package.json/tsconfig/prettier가 이미 강제하는 룰 |
+| bloat | `token-budget` | warning | always-on 토큰 예산 초과 |
+| bloat | `vague` | info | "clean code" 류 모호 룰 |
+| drift | `dangling-path` | warning | 존재하지 않는 경로 참조 |
+| drift | `stale-command` | error | package.json scripts에 없는 명령 |
+| drift | `stale-dependency` | warning | 미설치 프레임워크 명시 |
+| drift | `broken-alias` | warning | tsconfig paths/의존성에 없는 별칭 |
+
+`ail check <path> --format sarif|json|pretty --max-level error|warning|info` — `--max-level` 이상 심각도가 있으면 exit code 1 (CI 게이팅). 결정론 검사만 `error` 승격(FP 억제).
+
+## Instruction IR (요약)
+
+각 Instruction: `id, source{file,line,headingPath}, raw, normalized, directive(MUST/…/INFO), polarity, atomicity(atomic/compound/narrative), fromCompound, scope{globs,loading,dirBoundary}, category, settingKV{key,value,confType}|null, codeReferents[{kind,value,confidence}], tokens`. 전체 정의는 [`src/types.ts`](src/types.ts).
+
+## 알려진 v1 한계 (의도된 것)
+
+- Instruction당 settingKV는 **1개**만 추출 (예: "2-space indentation"은 `style.indent=space`로 매칭되고 `indentSize=2`는 가려짐).
+- 선언형으로 쓰인 설정 문장("Maximum line length 100 characters.")은 modality 트리거가 없어 `INFO/narrative`로 분류될 수 있음 — settingKV는 여전히 추출됨.
+- `async/await`처럼 `/`를 포함한 백틱 토큰은 `path`로 분류될 수 있음.
+- 명령형 동사 사전·ko 종결어미 탐지는 휴리스틱(평가 하니스로 캘리브레이션 예정).
+
+이 한계들은 후속 단계(다중 settingKV 허용·directive 보정·로컬 ML 계층)에서 개선 예정.
