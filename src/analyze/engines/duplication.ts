@@ -17,6 +17,34 @@ function redundantDiag(ins: Instruction, why: string, source: string): Diagnosti
   };
 }
 
+function tokenize(s: string): Set<string> {
+  return new Set(s.toLowerCase().replace(/[`'".,;:()[\]]/g, ' ').split(/\s+/).filter((w) => w.length >= 2));
+}
+function jaccard(a: Set<string>, b: Set<string>): number {
+  let inter = 0;
+  for (const x of a) if (b.has(x)) inter++;
+  const uni = a.size + b.size - inter;
+  return uni === 0 ? 0 : inter / uni;
+}
+function dupDiag(a: Instruction, b: Instruction, kind: 'exact' | 'near', score?: number): Diagnostic {
+  const exact = kind === 'exact';
+  return {
+    checkId: 'duplication/rule-rule',
+    engine: 'duplication',
+    severity: exact ? 'warning' : 'info',
+    confidence: exact ? 0.95 : 0.7,
+    message: exact
+      ? `중복 룰(동일): "${a.normalized}"`
+      : `유사 중복(Jaccard ${score?.toFixed(2)}): "${a.normalized}" ↔ "${b.normalized}"`,
+    location: { file: a.source.file, line: a.source.line },
+    related: [{ loc: { file: b.source.file, line: b.source.line }, role: '중복 상대' }],
+    fix: exact
+      ? { kind: 'auto', description: '한쪽 삭제', edits: [{ file: b.source.file, line: b.source.line, newText: '', mode: 'delete' }] }
+      : { kind: 'manual', description: '하나로 통합 검토' },
+    fingerprint: fingerprint(['duplication/rule-rule', ...[a.id, b.id].sort()]),
+  };
+}
+
 export function checkDuplication(ctx: AnalysisContext): Diagnostic[] {
   const out: Diagnostic[] = [];
   const c = ctx.config;
@@ -45,6 +73,25 @@ export function checkDuplication(ctx: AnalysisContext): Diagnostic[] {
       /\btypescript\b/.test(ins.normalized.toLowerCase())
     ) {
       out.push(redundantDiag(ins, 'tsconfig.json 존재 → TypeScript 사용은 자명', 'tsconfig.json'));
+    }
+  }
+
+  // 룰-룰 중복(완전/근접) — n이 수백 규모라 직접 Jaccard로 충분(MinHash는 스케일 시 도입)
+  const ruleLike = ctx.instructions.filter((i) => i.atomicity !== 'narrative' && i.normalized.length > 0);
+  const tokenSets = ruleLike.map((i) => tokenize(i.normalized));
+  for (let a = 0; a < ruleLike.length; a++) {
+    for (let b = a + 1; b < ruleLike.length; b++) {
+      const A = ruleLike[a]!;
+      const B = ruleLike[b]!;
+      if (A.normalized.toLowerCase() === B.normalized.toLowerCase()) {
+        out.push(dupDiag(A, B, 'exact'));
+        continue;
+      }
+      const ta = tokenSets[a]!;
+      const tb = tokenSets[b]!;
+      if (ta.size < 3 || tb.size < 3) continue;
+      const j = jaccard(ta, tb);
+      if (j >= 0.85) out.push(dupDiag(A, B, 'near', j));
     }
   }
 

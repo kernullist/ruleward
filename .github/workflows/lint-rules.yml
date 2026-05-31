@@ -1,0 +1,32 @@
+# 예시 워크플로: 저장소의 에이전트 룰파일(AGENTS.md/CLAUDE.md/.cursor/rules 등)을
+# ail로 린트하고 결과를 SARIF로 GitHub code scanning에 업로드한다.
+# 다른 저장소에선 설치된 패키지(`npx ail check . ...`)로 바꿔 쓰면 된다.
+name: Lint agent rules
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write # SARIF 업로드용
+
+jobs:
+  ail:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # 결정론·고신뢰 검사만 error로 승격해 CI 게이팅; 나머지는 경고로 리포트만.
+      - name: Lint rule files → SARIF
+        run: npx tsx src/cli.ts check . --format sarif --error-on drift/stale-command,conflict/setting-collision,conflict/prohibit-vs-require > ail.sarif
+        continue-on-error: true
+      - name: Upload SARIF to code scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ail.sarif

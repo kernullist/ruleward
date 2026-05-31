@@ -14,7 +14,7 @@ export { countTokens } from './tokens';
 
 // --- 분석(Check 엔진) + 리포트 ---
 export * from './diagnostics';
-export { analyzePath, runChecks, maxSeverity, type AnalyzeResult } from './analyze/run';
+export { analyzePath, runChecks, maxSeverity, escalate, type AnalyzeResult } from './analyze/run';
 export { buildContext, type AnalysisContext } from './analyze/context';
 export { extractConfigFacts, type ConfigFacts } from './analyze/configFacts';
 export { scopeRelation, type ScopeRel } from './analyze/scopeRel';

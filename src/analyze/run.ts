@@ -49,3 +49,13 @@ export function maxSeverity(diags: Diagnostic[]): Severity | null {
   }
   return max;
 }
+
+/** 지정한 check/engine 진단을 error로 승격(CI 게이팅용). 패턴 = engine명 또는 checkId 또는 그 prefix. */
+export function escalate(diags: Diagnostic[], patterns: string[]): Diagnostic[] {
+  if (patterns.length === 0) return diags;
+  return diags.map((d) =>
+    patterns.some((p) => d.engine === p || d.checkId === p || d.checkId.startsWith(`${p}/`))
+      ? { ...d, severity: 'error' as const }
+      : d
+  );
+}

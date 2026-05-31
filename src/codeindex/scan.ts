@@ -36,8 +36,12 @@ const FAST_SKIP = /@deprecated|Deprecated:|\[Obsolete|#\[deprecated|DeprecationW
 
 /** 한 줄에서 폐기 마커를 찾고 노트(설명) 반환. 마커 없으면 null. */
 function deprecationNote(line: string, ext: string): string | null {
-  let m = line.match(/@deprecated\b[:\s]*(.*)$/i); // jsdoc/tsdoc/java/py 데코레이터
-  if (m) return (m[1] ?? '').trim();
+  let m = line.match(/@deprecated\b[:\s]*(.*)$/i); // jsdoc/tsdoc/java 어노테이션/py 데코레이터
+  if (m) {
+    // 주석 또는 어노테이션/데코레이터 맥락에서만 인정 — 문자열 리터럴 속 "@deprecated" 오탐 방지.
+    const before = line.slice(0, m.index ?? 0);
+    if (/^\s*$/.test(before) || /\/\/|\/\*|\*|#/.test(before)) return (m[1] ?? '').trim();
+  }
   if (ext === 'go') {
     m = line.match(/\/\/\s*Deprecated:\s*(.*)$/);
     if (m) return (m[1] ?? '').trim();

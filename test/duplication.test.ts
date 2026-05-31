@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { checkDuplication } from '../src/analyze/engines/duplication';
-import { parsedFile, makeCtx } from './helpers';
+import { parsedFile, makeCtx, BROAD } from './helpers';
 
 describe('duplication engine (redundant-with-config)', () => {
   it('flags packageManager rule already declared in package.json', () => {
@@ -21,5 +21,21 @@ describe('duplication engine (redundant-with-config)', () => {
   it('does not flag when config does not declare it', () => {
     const ctx = makeCtx([parsedFile('- Use pnpm.\n')], { config: { hasPackageJson: true } });
     expect(checkDuplication(ctx).length).toBe(0);
+  });
+
+  it('flags an exact duplicate rule across files', () => {
+    const ctx = makeCtx([
+      parsedFile('- Always use single quotes.\n', BROAD, 'AGENTS.md'),
+      parsedFile('- Always use single quotes.\n', BROAD, 'CLAUDE.md'),
+    ]);
+    expect(checkDuplication(ctx).some((d) => d.checkId === 'duplication/rule-rule' && d.severity === 'warning')).toBe(true);
+  });
+
+  it('flags a near-duplicate (paraphrase) rule', () => {
+    const ctx = makeCtx([
+      parsedFile('- Always write unit tests for new modules.\n', BROAD, 'a.md'),
+      parsedFile('- Always write unit tests for all new modules.\n', BROAD, 'b.md'),
+    ]);
+    expect(checkDuplication(ctx).some((d) => d.checkId === 'duplication/rule-rule' && d.severity === 'info')).toBe(true);
   });
 });

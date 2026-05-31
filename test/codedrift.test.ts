@@ -25,6 +25,11 @@ describe('scanText (deprecation detector)', () => {
     const syms = scanText('[Obsolete("use NewApi")]\npublic void OldApi() {}', 'Api.cs');
     expect(syms[0]?.name).toBe('OldApi');
   });
+
+  it('ignores @deprecated inside a string literal (precision guard)', () => {
+    const syms = scanText('const msg = "@deprecated do not use";\nexport const x = 1;', 'src/s.ts');
+    expect(syms).toHaveLength(0);
+  });
 });
 
 const idxWith = (name: string, replacement?: string): CodeIndex => ({

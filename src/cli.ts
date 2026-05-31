@@ -4,7 +4,7 @@ import { stat } from 'node:fs/promises';
 import { parseRoot } from './index';
 import { loadFile, discover } from './discovery/discover';
 import { parseInstructions } from './parse/parseFile';
-import { analyzePath, maxSeverity } from './analyze/run';
+import { analyzePath, maxSeverity, escalate } from './analyze/run';
 import { toSarif } from './report/sarif';
 import { formatDiagnostics } from './report/pretty';
 import { SEVERITY_LEVEL, type Severity } from './diagnostics';
@@ -84,16 +84,27 @@ program
   .option('--format <fmt>', 'pretty | sarif | json', 'pretty')
   .option('--max-level <lvl>', 'exit≠0 기준 (error|warning|info)', 'error')
   .option('--no-code-scan', '코드 인덱스(드리프트 Code→Rule) 스캔 비활성화')
-  .action(async (pathArg: string, opts: { format?: string; maxLevel?: string; codeScan?: boolean }) => {
-    const { diagnostics } = await analyzePath(pathArg, { scan: opts.codeScan });
-    if (opts.format === 'sarif') console.log(JSON.stringify(toSarif(diagnostics), null, 2));
-    else if (opts.format === 'json') console.log(JSON.stringify(diagnostics, null, 2));
-    else console.log(formatDiagnostics(diagnostics));
+  .option('--error-on <list>', 'error로 승격할 check/engine (콤마구분, 예: drift/dangling-path,drift)')
+  .action(
+    async (
+      pathArg: string,
+      opts: { format?: string; maxLevel?: string; codeScan?: boolean; errorOn?: string }
+    ) => {
+      const res = await analyzePath(pathArg, { scan: opts.codeScan });
+      const patterns = (opts.errorOn ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+      const diagnostics = escalate(res.diagnostics, patterns).sort(
+        (a, b) => SEVERITY_LEVEL[b.severity] - SEVERITY_LEVEL[a.severity] || b.confidence - a.confidence
+      );
 
-    const lvl: Severity = opts.maxLevel === 'warning' || opts.maxLevel === 'info' ? opts.maxLevel : 'error';
-    const worst = maxSeverity(diagnostics);
-    if (worst && SEVERITY_LEVEL[worst] >= SEVERITY_LEVEL[lvl]) process.exitCode = 1;
-  });
+      if (opts.format === 'sarif') console.log(JSON.stringify(toSarif(diagnostics), null, 2));
+      else if (opts.format === 'json') console.log(JSON.stringify(diagnostics, null, 2));
+      else console.log(formatDiagnostics(diagnostics));
+
+      const lvl: Severity = opts.maxLevel === 'warning' || opts.maxLevel === 'info' ? opts.maxLevel : 'error';
+      const worst = maxSeverity(diagnostics);
+      if (worst && SEVERITY_LEVEL[worst] >= SEVERITY_LEVEL[lvl]) process.exitCode = 1;
+    }
+  );
 
 program.parseAsync().catch((e: unknown) => {
   console.error(e instanceof Error ? e.message : String(e));
