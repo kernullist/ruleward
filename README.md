@@ -2,18 +2,21 @@
 
 AGENTS.md / CLAUDE.md / Cursor rules 등 **AI 에이전트 룰파일**의 충돌·중복·과대화·코드드리프트를 분석하고 수정을 제안하는 린터 & 검증기.
 
-> **상태: Phase 0 완료 + Phase 1 일부 — IR 파서 + 결정론 Check(충돌·중복·과대화·드리프트·코드드리프트) + tree-sitter 정밀 인덱스 + SARIF 2.1.0 + 평가 하니스 + GitHub Actions.** (vitest 69개 통과)
+> **상태: Phase 0 완료 + Phase 1 일부 — IR 파서 + 결정론 Check(충돌·중복·과대화·드리프트·코드드리프트) + tree-sitter 정밀 인덱스 + SARIF 2.1.0 + 평가 하니스 + NLI 의미충돌(opt-in) + GitHub Actions.** (vitest 72개 통과)
 > 코드 드리프트(Code→Rule): **tree-sitter AST**(web-tree-sitter 0.22.6 + tree-sitter-wasms; ts/tsx/js/py/go)로 폐기 심볼을 정확히 귀속해 **가드 룰 누락**(헤드라인)을 탐지. 미지원 언어·파싱 실패는 정규식 폴백.
 > **평가 하니스**: planted-fault 23케이스에서 precision/recall **100%**, clean 프로젝트 FP **0**, error 오탐 **0** (`npm run bench`).
-> 다음: 로컬 ML(NLI 자연어 모순·임베딩 근접중복) — 하니스로 FP를 수치 관리하며 추가.
+> **의미 충돌(opt-in, 실험적)**: `--semantic`으로 NLI(deberta-v3-base, transformers.js) 활성화 — settingKV로 환원 안 되는 자연어 모순 탐지. zero-shot 베이스라인 **recall 100%·precision 71%**(`npm run bench:nli`)라 **info·opt-in**으로만 노출(결정론 기본 게이트 불변). 프로덕션 정밀도는 fine-tune 경로(FROZEN §5).
+> 다음: NLI fine-tune(settingKV 합성쌍) / 임베딩 근접중복.
 > 설계 배경: [DESIGN.md](DESIGN.md) · [docs/DEEP-DIVE.md](docs/DEEP-DIVE.md) · [docs/FROZEN-v0.3.md](docs/FROZEN-v0.3.md)(구현 계약).
 
 ## 빠른 시작
 
 ```bash
 npm install
-npm test                                       # vitest (69 tests)
+npm test                                       # vitest (72 tests)
 npm run bench                                  # planted-fault 벤치마크 (precision/recall/FP)
+npm run bench:nli                              # NLI 의미충돌 베이스라인 평가 (모델 다운로드)
+npx tsx src/cli.ts check test/fixtures --semantic   # NLI 의미충돌(opt-in, 모델 다운로드)
 npm run typecheck                              # tsc --noEmit
 npx tsx src/cli.ts parse test/fixtures         # 룰파일/디렉토리 → Instruction IR 요약
 npx tsx src/cli.ts check test/fixtures         # 5개 엔진 진단 (pretty)
@@ -56,7 +59,8 @@ src/
   report/
     sarif.ts               Diagnostic[] → SARIF 2.1.0
     pretty.ts              CLI 텍스트 출력
-  bench/                   planted-fault 벤치마크 (cases·run·report·main)
+  semantic/nli.ts          NLI(transformers.js deberta-v3, opt-in) + declarativize
+  bench/                   planted-fault 벤치마크(cases·run·report·main) + nli-eval(NLI P/R)
   index.ts                 공개 API (parseRoot, analyzePath, toSarif 등)
   cli.ts                   ail parse / discover / check (commander)
 ```
@@ -68,6 +72,7 @@ src/
 | conflict | `setting-collision` | error | 같은 스코프에서 settingKV 값 충돌 (탭 vs 스페이스 등) |
 | conflict | `scoped-override` | info | 더 구체적 스코프가 상위를 오버라이드 (의도 확인) |
 | conflict | `prohibit-vs-require` | error | 같은 import 대상이 금지+권장 동시 지정 |
+| conflict | `nli-contradiction` | info (opt-in) | 자연어 의미 모순 — `--semantic` 필요(실험적, recall100%/precision71%) |
 | duplication | `redundant-with-config` | warning | package.json/tsconfig/prettier가 이미 강제하는 룰 |
 | duplication | `rule-rule` | warning/info | 룰 간 완전(동일)/근접(Jaccard≥0.85) 중복 |
 | bloat | `token-budget` | warning | always-on 토큰 예산 초과 |
@@ -80,7 +85,7 @@ src/
 | drift | `missing-guard-rule` | info | 코드의 `@deprecated` 심볼을 막는 룰이 없음 (+ 룰 초안 제안) — **헤드라인** |
 | drift | `deprecated-symbol-recommended` | warning | 룰이 deprecated 심볼 사용을 권장/허용 |
 
-`ail check <path> --format sarif|json|pretty --max-level error|warning|info [--error-on <check/engine,…>] [--no-code-scan]` — `--max-level` 이상이면 exit 1. `--error-on`으로 특정 check/engine만 error 승격(예: CI에서 `drift/stale-command`만 실패 처리). 기본은 결정론 검사만 error(FP 억제).
+`ail check <path> --format sarif|json|pretty --max-level error|warning|info [--error-on <check/engine,…>] [--no-code-scan] [--semantic]` — `--max-level` 이상이면 exit 1. `--error-on`으로 특정 check/engine만 error 승격(예: CI에서 `drift/stale-command`만 실패 처리). 기본은 결정론 검사만 error(FP 억제).
 
 **GitHub Actions:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml)(typecheck+test), [`.github/workflows/lint-rules.yml`](.github/workflows/lint-rules.yml)(룰 린트 → SARIF를 code scanning에 업로드; 다른 레포용 템플릿).
 

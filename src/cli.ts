@@ -85,12 +85,13 @@ program
   .option('--max-level <lvl>', 'exit≠0 기준 (error|warning|info)', 'error')
   .option('--no-code-scan', '코드 인덱스(드리프트 Code→Rule) 스캔 비활성화')
   .option('--error-on <list>', 'error로 승격할 check/engine (콤마구분, 예: drift/dangling-path,drift)')
+  .option('--semantic', '의미 분석 계층(NLI) 활성화 — 최초 실행 시 모델 다운로드(실험적, info)')
   .action(
     async (
       pathArg: string,
-      opts: { format?: string; maxLevel?: string; codeScan?: boolean; errorOn?: string }
+      opts: { format?: string; maxLevel?: string; codeScan?: boolean; errorOn?: string; semantic?: boolean }
     ) => {
-      const res = await analyzePath(pathArg, { scan: opts.codeScan });
+      const res = await analyzePath(pathArg, { scan: opts.codeScan, semantic: opts.semantic });
       const patterns = (opts.errorOn ?? '').split(',').map((s) => s.trim()).filter(Boolean);
       const diagnostics = escalate(res.diagnostics, patterns).sort(
         (a, b) => SEVERITY_LEVEL[b.severity] - SEVERITY_LEVEL[a.severity] || b.confidence - a.confidence

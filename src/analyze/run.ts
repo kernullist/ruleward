@@ -10,6 +10,8 @@ import { checkDuplication } from './engines/duplication';
 import { checkBloat } from './engines/bloat';
 import { checkDrift } from './engines/drift';
 import { checkCodeDrift } from './engines/codedrift';
+import { checkSemanticConflict } from './engines/semanticConflict';
+import { getNliScorer } from '../semantic/nli';
 
 /** Engine 실행 → 심각도·신뢰도 내림차순 정렬. */
 export function runChecks(ctx: AnalysisContext): Diagnostic[] {
@@ -25,7 +27,10 @@ export interface AnalyzeResult {
 }
 
 /** 파일 또는 디렉토리 경로 → 분석 결과. 파일이면 그 디렉토리를 root(설정 컨텍스트)로. */
-export async function analyzePath(target: string, opts: { scan?: boolean } = {}): Promise<AnalyzeResult> {
+export async function analyzePath(
+  target: string,
+  opts: { scan?: boolean; semantic?: boolean } = {}
+): Promise<AnalyzeResult> {
   const st = await stat(target).catch(() => null);
   let root: string;
   let files: ParsedFile[];
@@ -39,7 +44,16 @@ export async function analyzePath(target: string, opts: { scan?: boolean } = {})
     files = [{ file, instructions: parseInstructions(file) }];
   }
   const ctx = await buildContext(root, files, { scan: opts.scan });
-  return { root, files, diagnostics: runChecks(ctx) };
+  const diagnostics = runChecks(ctx);
+
+  // opt-in 의미 분석 계층(NLI). 모델 미가용 시 조용히 생략(결정론 결과만).
+  if (opts.semantic) {
+    const scorer = await getNliScorer();
+    if (scorer) diagnostics.push(...(await checkSemanticConflict(ctx, scorer)));
+    diagnostics.sort((a, b) => SEVERITY_LEVEL[b.severity] - SEVERITY_LEVEL[a.severity] || b.confidence - a.confidence);
+  }
+
+  return { root, files, diagnostics };
 }
 
 export function maxSeverity(diags: Diagnostic[]): Severity | null {
