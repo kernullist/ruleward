@@ -4,12 +4,20 @@
   "description": "Lint AI agent rule files (AGENTS.md, CLAUDE.md, Cursor rules) for conflicts, duplication, bloat, and drift from your code.",
   "type": "module",
   "bin": {
-    "ruleward": "src/cli.ts"
+    "ruleward": "dist/cli.js"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
+    "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -17,7 +25,8 @@
     "bench": "tsx src/bench/main.ts",
     "bench:nli": "tsx src/bench/nli-eval.ts",
     "corpus:fetch": "tsx corpus/fetch.ts",
-    "bench:real": "tsx src/bench/real.ts"
+    "bench:real": "tsx src/bench/real.ts",
+    "prepublishOnly": "npm run build"
   },
   "engines": {
     "node": ">=18"
@@ -40,6 +49,7 @@
   "devDependencies": {
     "@types/mdast": "^4.0.4",
     "@types/node": "^22.10.0",
+    "tsup": "^8.5.1",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^2.1.0"

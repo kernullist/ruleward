@@ -141,6 +141,7 @@ Design notes and rationale live in [`DESIGN.md`](DESIGN.md) and [`docs/`](docs/)
 npm test            # unit tests + the planted-fault benchmark
 npm run typecheck   # tsc --noEmit
 npm run bench       # planted-fault benchmark report (precision/recall/FP)
+npm run build       # bundle to dist/ via tsup → the `ruleward` bin (node dist/cli.js)
 ```
 
 ## License
