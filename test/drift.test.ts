@@ -57,4 +57,9 @@ describe('drift engine', () => {
     });
     expect(checkDrift(ctx).some((d) => d.checkId === 'drift/stale-symbol')).toBe(false);
   });
+
+  it('does not flag a bare filename (no directory) as dangling', () => {
+    const ctx = makeCtx([parsedFile('- Configure logging in `logback-test.xml`.\n')], { exists: () => false });
+    expect(checkDrift(ctx).some((d) => d.checkId === 'drift/dangling-path')).toBe(false);
+  });
 });

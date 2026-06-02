@@ -26,4 +26,14 @@ describe('extractReferents', () => {
     const r = extractReferents('use the Button component carefully');
     expect(r.some((x) => x.kind === 'symbol')).toBe(false);
   });
+
+  it('does not classify a shell command with args as a path', () => {
+    const r = extractReferents('build with `./mvnw -B package`');
+    expect(r.some((x) => x.kind === 'path')).toBe(false);
+  });
+
+  it('does not classify a dotted package name as a path', () => {
+    const r = extractReferents('inject via `io.dropwizard.jobs`');
+    expect(r.some((x) => x.kind === 'path')).toBe(false);
+  });
 });

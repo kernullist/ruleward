@@ -26,6 +26,8 @@
     "bench:nli": "tsx src/bench/nli-eval.ts",
     "corpus:fetch": "tsx corpus/fetch.ts",
     "bench:real": "tsx src/bench/real.ts",
+    "bench:real:code": "tsx src/bench/real-code.ts",
+    "nli:gen-data": "tsx src/semantic/finetune-data.ts",
     "prepublishOnly": "npm run build"
   },
   "engines": {

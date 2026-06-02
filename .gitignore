@@ -8,3 +8,5 @@ coverage/
 # real-world eval corpus: keep manifest (metadata), never redistribute fetched content
 corpus/files/
 corpus/review.jsonl
+corpus/nli-pairs.jsonl
+corpus/review-code.jsonl

@@ -6,12 +6,19 @@ import type { CodeReferent, ReferentKind } from '../types';
  */
 
 const COMMAND_RE = /^(?:npm|pnpm|yarn)\s+(?:run\s+)?[\w:.-]+$|^(?:npx|make|cargo|go|deno|dotnet|gradle|mvn)\s+[\w:.-]+/i;
+// 알려진 파일 확장자만 경로로 인정 — 'io.dropwizard.jobs' 같은 점표기 패키지명 오인 방지.
+const KNOWN_EXT = /\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|mdx|ya?ml|toml|xml|html?|css|scss|less|sh|bash|py|go|rs|java|cs|rb|php|sql|txt|env|lock|cfg|ini|gradle|properties|svg|png)$/i;
 
 function classifyToken(v: string): { kind: ReferentKind; confidence: number } {
   const t = v.trim();
   if (COMMAND_RE.test(t)) return { kind: 'command', confidence: 0.9 };
+  // 공백 포함 토큰은 경로/심볼이 아님 — 셸 명령(`./mvnw -B package`)이거나 자유 문구.
+  if (/\s/.test(t)) {
+    if (/^\.?\/?(?:mvnw|gradlew)\b/.test(t) || /^\.\//.test(t)) return { kind: 'command', confidence: 0.6 };
+    return { kind: 'concept', confidence: 0.4 };
+  }
   if (/^@[\w-]+\//.test(t)) return { kind: 'alias', confidence: 0.8 }; // @scope/... (별칭 또는 스코프 패키지)
-  if (t.includes('/') || /\.\w{1,6}$/.test(t) || /^[.~]?\//.test(t)) return { kind: 'path', confidence: 0.85 };
+  if (t.includes('/') || KNOWN_EXT.test(t)) return { kind: 'path', confidence: 0.85 };
   // CamelCase / PascalCase / snake_case / Foo.bar — 백틱 안에서만 심볼로 인정
   if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(t) && /[A-Z_]/.test(t) && !/^[A-Z]+$/.test(t)) {
     return { kind: 'symbol', confidence: 0.7 };

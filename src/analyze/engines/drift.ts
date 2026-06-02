@@ -46,6 +46,7 @@ function pathBase(value: string): string {
 
 function isDangling(value: string, ctx: AnalysisContext): boolean {
   if (/^[a-z]+:\/\//i.test(value)) return false;
+  if (!value.includes('/')) return false; // 디렉토리 없는 맨 파일명은 어디에든 있을 수 있어 보류(FP 방지)
   if (!looksLikePath(value)) return false;
   const base = pathBase(value);
   if (!base || base === '.' || base === '..') return false;
