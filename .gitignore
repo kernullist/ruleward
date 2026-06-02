@@ -4,3 +4,7 @@ coverage/
 *.log
 .DS_Store
 .claude/settings.local.json
+
+# real-world eval corpus: keep manifest (metadata), never redistribute fetched content
+corpus/files/
+corpus/review.jsonl

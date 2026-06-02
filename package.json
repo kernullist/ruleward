@@ -15,7 +15,9 @@
     "test:watch": "vitest",
     "dev": "tsx src/cli.ts",
     "bench": "tsx src/bench/main.ts",
-    "bench:nli": "tsx src/bench/nli-eval.ts"
+    "bench:nli": "tsx src/bench/nli-eval.ts",
+    "corpus:fetch": "tsx corpus/fetch.ts",
+    "bench:real": "tsx src/bench/real.ts"
   },
   "engines": {
     "node": ">=18"
