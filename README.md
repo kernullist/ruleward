@@ -79,6 +79,28 @@ By default only **deterministic, high-confidence** findings reach `error` severi
 
 `pretty` (human), `json` (machine), and **SARIF 2.1.0** are supported. SARIF uploads to GitHub code scanning and includes `relatedLocations` (the other conflicting/duplicate rule, or the offending code location) and suggested fixes. An example workflow lives in [`.github/workflows/lint-rules.yml`](.github/workflows/lint-rules.yml).
 
+## Configuration
+
+Drop a `.rulewardrc.json` at your project root to tune thresholds, silence checks, or skip files:
+
+```json
+{
+  "disable": ["bloat/vague", "conflict/scoped-override"],
+  "errorOn": ["drift/stale-command"],
+  "ignore": ["legacy/**/AGENTS.md"],
+  "tokenBudget": 6000,
+  "nearDupJaccard": 0.9,
+  "nliThreshold": 0.92
+}
+```
+
+- `disable` — checkIds or engine names to drop (`bloat`, `drift/stale-symbol`, …).
+- `errorOn` — escalate matching checks to `error` (fail CI).
+- `ignore` — globs of rule files to skip.
+- `tokenBudget` (or `tokenBudgetFile` / `tokenBudgetAlways`), `nearDupJaccard`, `nliThreshold` — threshold overrides.
+
+CLI flags (`--error-on`, `--max-level`, `--no-code-scan`, `--semantic`) layer on top.
+
 ## How it works
 
 ```

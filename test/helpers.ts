@@ -3,6 +3,7 @@ import type { ConfigFacts } from '../src/analyze/configFacts';
 import type { RuleFile, Scope, ParsedFile } from '../src/types';
 import { parseInstructions } from '../src/parse/parseFile';
 import type { CodeIndex } from '../src/codeindex/scan';
+import { DEFAULT_SETTINGS } from '../src/config';
 
 export function emptyConfig(over: Partial<ConfigFacts> = {}): ConfigFacts {
   return {
@@ -35,6 +36,7 @@ export function makeCtx(
     instructions: files.flatMap((f) => f.instructions),
     config: emptyConfig(opts.config),
     codeIndex: opts.codeIndex,
+    settings: DEFAULT_SETTINGS,
     exists: opts.exists ?? ((): boolean => false),
   };
 }

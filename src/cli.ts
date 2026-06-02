@@ -92,7 +92,8 @@ program
       opts: { format?: string; maxLevel?: string; codeScan?: boolean; errorOn?: string; semantic?: boolean }
     ) => {
       const res = await analyzePath(pathArg, { scan: opts.codeScan, semantic: opts.semantic });
-      const patterns = (opts.errorOn ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+      const cliPatterns = (opts.errorOn ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+      const patterns = [...res.settings.errorOn, ...cliPatterns]; // .rulewardrc + CLI 병합
       const diagnostics = escalate(res.diagnostics, patterns).sort(
         (a, b) => SEVERITY_LEVEL[b.severity] - SEVERITY_LEVEL[a.severity] || b.confidence - a.confidence
       );

@@ -25,6 +25,7 @@ export { getRuntime, scanWithRuntime } from './codeindex/treesitter';
 export { checkCodeDrift } from './analyze/engines/codedrift';
 export { checkSemanticConflict } from './analyze/engines/semanticConflict';
 export { getNliScorer, declarativize, type NliScorer } from './semantic/nli';
+export { loadSettings, DEFAULT_SETTINGS, matchesCheck, type RulewardSettings } from './config';
 
 import { discover } from './discovery/discover';
 import { parseInstructions } from './parse/parseFile';

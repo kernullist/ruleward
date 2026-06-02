@@ -9,6 +9,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseInstructions } from '../parse/parseFile';
+import { DEFAULT_SETTINGS } from '../config';
 import { checkConflicts } from '../analyze/engines/conflict';
 import { checkDuplication } from '../analyze/engines/duplication';
 import { checkBloat } from '../analyze/engines/bloat';
@@ -35,7 +36,7 @@ const BROAD: Scope = { globs: ['**'], loading: 'always', dirBoundary: '.' };
 function ctxFor(file: RuleFile): AnalysisContext {
   const instructions = parseInstructions(file);
   const pf: ParsedFile = { file, instructions };
-  return { root: CORPUS, files: [pf], instructions, config: EMPTY_CONFIG, exists: () => false };
+  return { root: CORPUS, files: [pf], instructions, config: EMPTY_CONFIG, settings: DEFAULT_SETTINGS, exists: () => false };
 }
 
 interface Meta {

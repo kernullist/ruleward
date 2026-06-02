@@ -4,8 +4,7 @@ import { type Diagnostic, fingerprint } from '../../diagnostics';
 
 /** bloat 엔진 — 토큰 예산 + 모호 룰. DEEP-DIVE §6.3. */
 
-const ALWAYS_BUDGET = 4000; // always-on 합계 권장 상한(tok)
-const FILE_BUDGET = 4000; // 단일 always-on 파일 상한(tok) — 실세계 분포상 1500은 과민(향후 설정화)
+// 토큰 예산·임계는 ctx.settings에서 읽는다(.rulewardrc로 조정, 기본 DEFAULT_SETTINGS).
 
 // 강한 충전재만 — 'properly'/'where appropriate'/'as needed' 같은 약한 트리거는
 // 구체적 룰에 우발적으로 끼어 FP를 내므로 제외(실세계 코퍼스 결과 반영).
@@ -13,7 +12,7 @@ const VAGUE: RegExp[] = [
   /\bclean code\b/,
   /\bbest practices?\b/,
   /\bmaintainable\b/,
-  /\breadable\b/,
+  /(?<![\w-])readable\b/, // "AI-readable" 같은 하이픈 복합어는 제외
   /\bgood (code|practices?)\b/,
   /\bhigh.quality\b/,
   /\bproduction.ready\b/,
@@ -56,6 +55,8 @@ export function checkBloat(ctx: AnalysisContext): Diagnostic[] {
   const out: Diagnostic[] = [];
 
   // 토큰 예산
+  const fileBudget = ctx.settings.tokenBudgetFile;
+  const alwaysBudget = ctx.settings.tokenBudgetAlways;
   let alwaysTotal = 0;
   let alwaysFiles = 0;
   for (const f of ctx.files) {
@@ -63,19 +64,20 @@ export function checkBloat(ctx: AnalysisContext): Diagnostic[] {
     alwaysFiles++;
     const t = f.instructions.reduce((s, i) => s + i.tokens, 0);
     alwaysTotal += t;
-    if (t > FILE_BUDGET) out.push(budgetDiag(f.file.relPath, t, FILE_BUDGET, 'file'));
+    if (t > fileBudget) out.push(budgetDiag(f.file.relPath, t, fileBudget, 'file'));
   }
   // 합계 진단은 always-on 파일이 둘 이상일 때만 — 단일 파일이면 per-file 진단이 곧 합계라 중복.
-  if (alwaysFiles > 1 && alwaysTotal > ALWAYS_BUDGET) {
-    out.push(budgetDiag('(always-on 합계)', alwaysTotal, ALWAYS_BUDGET, 'aggregate'));
+  if (alwaysFiles > 1 && alwaysTotal > alwaysBudget) {
+    out.push(budgetDiag('(always-on 합계)', alwaysTotal, alwaysBudget, 'aggregate'));
   }
 
-  // 모호 룰
+  // 모호 룰 (선두 라벨 "Best Practice:" 등은 제거 후 판정 — 라벨 단어 오탐 방지)
   for (const ins of ctx.instructions) {
     if (ins.atomicity === 'narrative') continue;
     if (ins.settingKV !== null) continue;
     if (ins.codeReferents.length > 0) continue;
-    if (VAGUE.some((re) => re.test(ins.normalized.toLowerCase()))) out.push(vagueDiag(ins));
+    const text = ins.normalized.toLowerCase().replace(/^[a-z][\w ]{0,22}:\s*/, '');
+    if (VAGUE.some((re) => re.test(text))) out.push(vagueDiag(ins));
   }
 
   return out;

@@ -47,8 +47,8 @@ function buildRuleFile(root: string, rel: string, content: string): RuleFile {
   };
 }
 
-export async function discover(root: string): Promise<RuleFile[]> {
-  const rels = await glob(PATTERNS, { cwd: root, ignore: IGNORE, dot: true, absolute: false });
+export async function discover(root: string, ignore: string[] = []): Promise<RuleFile[]> {
+  const rels = await glob(PATTERNS, { cwd: root, ignore: [...IGNORE, ...ignore], dot: true, absolute: false });
   const unique = [...new Set(rels)].sort();
   const files: RuleFile[] = [];
   for (const rel of unique) {

@@ -96,7 +96,7 @@ export function checkDuplication(ctx: AnalysisContext): Diagnostic[] {
       const tb = tokenSets[b]!;
       if (ta.size < 3 || tb.size < 3) continue;
       const j = jaccard(ta, tb);
-      if (j >= 0.85) out.push(dupDiag(A, B, 'near', j));
+      if (j >= ctx.settings.nearDupJaccard) out.push(dupDiag(A, B, 'near', j));
     }
   }
 
