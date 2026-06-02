@@ -30,7 +30,7 @@ const DEPRECATED_TS = [
   '',
 ].join('\n');
 
-const BIG_PARAGRAPH = `${'lorem ipsum dolor sit amet consectetur '.repeat(400)}`;
+const BIG_PARAGRAPH = `${'lorem ipsum dolor sit amet consectetur '.repeat(1100)}`;
 
 export const CASES: BenchCase[] = [
   // ---------- conflict ----------
@@ -176,6 +176,38 @@ export const CASES: BenchCase[] = [
     name: 'drift stale-symbol negative (builtin global)',
     engine: 'negative',
     files: { 'src/svc.ts': 'export const helper = 1;\n', 'AGENTS.md': '# R\n\n- Wrap async work in `Promise`.\n' },
+    expect: [],
+  },
+
+  // ---------- real-world FP regressions (from the corpus run) ----------
+  {
+    name: 'regression: multiple test frameworks coexist (not a conflict)',
+    engine: 'negative',
+    files: { 'AGENTS.md': '# R\n\n- Use jest for unit tests.\n- Use playwright for e2e tests.\n' },
+    expect: [],
+  },
+  {
+    name: 'regression: different language versions are not a conflict',
+    engine: 'negative',
+    files: { 'AGENTS.md': '# R\n\n- Target TypeScript 5.6 for the app.\n- Run on Node 24 in production.\n' },
+    expect: [],
+  },
+  {
+    name: 'regression: short repeated label is not a duplicate rule',
+    engine: 'negative',
+    files: { 'AGENTS.md': '# R\n\n- Must have\n- Validate inputs at the boundary thoroughly.\n- Must have\n- Log structured errors with context always.\n- Must have\n' },
+    expect: [],
+  },
+  {
+    name: 'regression: incidental trigger word in a concrete rule is not vague',
+    engine: 'negative',
+    files: { 'AGENTS.md': '# R\n\n- Ensure JSON-RPC messages are properly formatted.\n' },
+    expect: [],
+  },
+  {
+    name: 'regression: a generic word is not an import target',
+    engine: 'negative',
+    files: { 'AGENTS.md': '# R\n\n- Never import from module.\n- Always import from module.\n' },
     expect: [],
   },
 

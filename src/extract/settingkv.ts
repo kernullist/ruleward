@@ -36,6 +36,13 @@ function caseToken(s: string): string {
   return s.replace(/[\s_-]/g, '').replace(/case$/, '');
 }
 
+// import 대상으로 잡히면 안 되는 일반 단어(실세계 FP: "from module" → 'module').
+const GENERIC_IMPORT = new Set([
+  'module', 'modules', 'package', 'packages', 'dependency', 'dependencies', 'library', 'libraries',
+  'file', 'files', 'code', 'import', 'imports', 'the', 'them', 'this', 'that', 'it', 'anything',
+  'everything', 'stuff', 'things', 'here', 'there', 'above', 'below', 'source', 'src',
+]);
+
 const MATCHERS: Matcher[] = [
   // --- style ---
   kv('style.indent', 'closed', (s) => {
@@ -90,16 +97,16 @@ const MATCHERS: Matcher[] = [
     if (!/import/.test(s)) return null;
     if (!/(do\s?n['’]?t|never|avoid|\bno\b|금지|하지\s?마|말 것|restricted?)/.test(s)) return null;
     const m = s.match(/import\s+(?:from\s+)?[`'"]?([\w@./*-]+)[`'"]?|from\s+[`'"]?([\w@./*-]+)/);
-    const v = m?.[1] ?? m?.[2];
-    return v ? { value: v } : null;
+    const v = (m?.[1] ?? m?.[2] ?? '').replace(/[^\w@/*-]+$/, ''); // 끝 구두점 제거('module.'→'module')
+    return v && !GENERIC_IMPORT.has(v.toLowerCase()) ? { value: v } : null;
   }),
   kv('imports.preferred', 'set', (s) => {
     if (!/import/.test(s)) return null;
     if (/(do\s?n['’]?t|never|avoid|\bno\b|금지|하지\s?마|말 것)/.test(s)) return null;
     if (!/(use|prefer|always|from|via)/.test(s)) return null;
     const m = s.match(/import\s+(?:from\s+)?[`'"]?([\w@./*-]+)[`'"]?|from\s+[`'"]?([\w@./*-]+)/);
-    const v = m?.[1] ?? m?.[2];
-    return v ? { value: v } : null;
+    const v = (m?.[1] ?? m?.[2] ?? '').replace(/[^\w@/*-]+$/, ''); // 끝 구두점 제거('module.'→'module')
+    return v && !GENERIC_IMPORT.has(v.toLowerCase()) ? { value: v } : null;
   }),
   kv('imports.style', 'closed', (s) => {
     if (/named imports? only|only named imports?|named import만/.test(s)) return { value: 'named' };
@@ -108,7 +115,8 @@ const MATCHERS: Matcher[] = [
     return null;
   }),
   // --- testing ---
-  kv('testing.framework', 'singleton', (s) => {
+  // 'set' — 한 프로젝트가 여러 테스트 도구(unit+e2e)를 쓰는 게 정상이라 충돌로 보지 않음.
+  kv('testing.framework', 'set', (s) => {
     const m = s.match(/\b(jest|vitest|mocha|jasmine|pytest|unittest|junit|rspec|playwright|cypress)\b/);
     if (m && /(test|spec|테스트|use|with|run)/.test(s)) return { value: m[1] ?? '' };
     return null;
@@ -124,9 +132,18 @@ const MATCHERS: Matcher[] = [
     if (m && /(use|run|install|package manager|패키지\s?매니저|로 설치)/.test(s)) return { value: m[1] ?? '' };
     return null;
   }),
+  // 언어별 키로 분리 — 'typescript5.6' vs 'node24'는 서로 다른 것이라 충돌이 아님.
   kv('lang.version', 'singleton', (s) => {
-    const m = s.match(/\b(es20\d\d|es\d{4}|esnext|python\s?3\.\d+|node\s?\d+|java\s?\d+|typescript\s?\d\.\d)\b/);
-    return m ? { value: (m[1] ?? '').replace(/\s+/g, '') } : null;
+    const m = s.match(/\b(es20\d\d|esnext|python\s?3\.\d+|node\s?\d+|java\s?\d+|typescript\s?\d\.\d)\b/);
+    if (!m) return null;
+    const v = (m[1] ?? '').replace(/\s+/g, '').toLowerCase();
+    let lang = 'other';
+    if (v.startsWith('typescript')) lang = 'typescript';
+    else if (v.startsWith('python')) lang = 'python';
+    else if (v.startsWith('node')) lang = 'node';
+    else if (v.startsWith('java')) lang = 'java';
+    else if (v.startsWith('es')) lang = 'ecmascript';
+    return { value: v, key: `lang.version.${lang}` };
   }),
   // --- patterns ---
   kv('async.style', 'closed', (s) => {

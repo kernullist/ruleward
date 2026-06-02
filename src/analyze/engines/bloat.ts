@@ -4,24 +4,24 @@ import { type Diagnostic, fingerprint } from '../../diagnostics';
 
 /** bloat 엔진 — 토큰 예산 + 모호 룰. DEEP-DIVE §6.3. */
 
-const ALWAYS_BUDGET = 2000; // always-on 합계 권장 상한(tok)
-const FILE_BUDGET = 1500; // 단일 always-on 파일 상한(tok)
+const ALWAYS_BUDGET = 4000; // always-on 합계 권장 상한(tok)
+const FILE_BUDGET = 4000; // 단일 always-on 파일 상한(tok) — 실세계 분포상 1500은 과민(향후 설정화)
 
+// 강한 충전재만 — 'properly'/'where appropriate'/'as needed' 같은 약한 트리거는
+// 구체적 룰에 우발적으로 끼어 FP를 내므로 제외(실세계 코퍼스 결과 반영).
 const VAGUE: RegExp[] = [
   /\bclean code\b/,
   /\bbest practices?\b/,
   /\bmaintainable\b/,
   /\breadable\b/,
-  /\bproperly\b/,
   /\bgood (code|practices?)\b/,
   /\bhigh.quality\b/,
-  /\bas needed\b/,
+  /\bproduction.ready\b/,
+  /\bwell.structured\b/,
   /\bbe careful\b/,
-  /\bwhere appropriate\b/,
   /클린\s?코드/,
   /가독성/,
   /유지보수/,
-  /적절(히|하게|한)/,
   /베스트\s?프랙티스/,
   /깔끔(하게|히)/,
 ];

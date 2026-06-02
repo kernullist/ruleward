@@ -76,9 +76,14 @@ export function checkDuplication(ctx: AnalysisContext): Diagnostic[] {
     }
   }
 
-  // 룰-룰 중복(완전/근접) — n이 수백 규모라 직접 Jaccard로 충분(MinHash는 스케일 시 도입)
-  const ruleLike = ctx.instructions.filter((i) => i.atomicity !== 'narrative' && i.normalized.length > 0);
-  const tokenSets = ruleLike.map((i) => tokenize(i.normalized));
+  // 룰-룰 중복(완전/근접) — n이 수백 규모라 직접 Jaccard로 충분(MinHash는 스케일 시 도입).
+  // 최소 4토큰 가드: "Must have" 같은 헤딩/라벨 조각이 중복으로 오탐되는 것 방지(실세계 FP).
+  const cand = ctx.instructions
+    .filter((i) => i.atomicity !== 'narrative' && i.normalized.length > 0)
+    .map((i) => ({ ins: i, t: tokenize(i.normalized) }))
+    .filter((e) => e.t.size >= 4);
+  const ruleLike = cand.map((e) => e.ins);
+  const tokenSets = cand.map((e) => e.t);
   for (let a = 0; a < ruleLike.length; a++) {
     for (let b = a + 1; b < ruleLike.length; b++) {
       const A = ruleLike[a]!;

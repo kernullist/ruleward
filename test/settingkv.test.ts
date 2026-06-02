@@ -34,4 +34,17 @@ describe('matchSettingKV', () => {
   it('returns null for vague rules', () => {
     expect(matchSettingKV('write clean code')).toBeNull();
   });
+
+  it('keys lang.version by language (no cross-language conflict)', () => {
+    expect(matchSettingKV('target typescript 5.6')).toMatchObject({ key: 'lang.version.typescript' });
+    expect(matchSettingKV('run on node 24')).toMatchObject({ key: 'lang.version.node' });
+  });
+
+  it('treats testing.framework as a set (coexisting frameworks)', () => {
+    expect(matchSettingKV('use playwright for e2e tests')).toMatchObject({ key: 'testing.framework', confType: 'set' });
+  });
+
+  it('rejects a generic word as an import target', () => {
+    expect(matchSettingKV('never import from module')).toBeNull();
+  });
 });

@@ -16,7 +16,7 @@ describe('bloat engine', () => {
   });
 
   it('flags an always-on file over the token budget', () => {
-    const big = `${'alpha beta gamma delta '.repeat(700)}`;
+    const big = `${'alpha beta gamma delta '.repeat(1500)}`;
     const ctx = makeCtx([parsedFile(big)]);
     expect(checkBloat(ctx).some((d) => d.checkId === 'bloat/token-budget')).toBe(true);
   });
