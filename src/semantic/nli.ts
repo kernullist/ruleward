@@ -8,7 +8,7 @@ import type { Directive } from '../types';
 
 export type NliScorer = (a: string, b: string) => Promise<number>; // 대칭 contradiction 확률 0..1
 
-const MODEL = 'Xenova/nli-deberta-v3-base';
+const DEFAULT_MODEL = 'Xenova/nli-deberta-v3-base';
 let loaderPromise: Promise<NliScorer | null> | null = null;
 
 function softmax(a: number[]): number[] {
@@ -22,8 +22,20 @@ async function load(): Promise<NliScorer | null> {
   try {
     /* eslint-disable @typescript-eslint/no-explicit-any */
     const mod: any = await import('@xenova/transformers');
-    const tok: any = await mod.AutoTokenizer.from_pretrained(MODEL);
-    const model: any = await mod.AutoModelForSequenceClassification.from_pretrained(MODEL);
+    // RULEWARD_NLI_MODEL: fine-tune한 로컬 모델 디렉토리(절대경로)면 로컬 로딩, 아니면 기본 Xenova HF id.
+    const override = process.env.RULEWARD_NLI_MODEL;
+    let modelId = DEFAULT_MODEL;
+    const fromOpts: Record<string, unknown> = {};
+    if (override) {
+      const p = await import('node:path');
+      mod.env.allowLocalModels = true;
+      mod.env.localModelPath = p.dirname(override);
+      modelId = p.basename(override);
+      fromOpts['local_files_only'] = true;
+      fromOpts['quantized'] = false; // optimum export = 비양자화 model.onnx
+    }
+    const tok: any = await mod.AutoTokenizer.from_pretrained(modelId, fromOpts);
+    const model: any = await mod.AutoModelForSequenceClassification.from_pretrained(modelId, fromOpts);
     const id2label: Record<string, string> = model.config.id2label ?? {};
     const contraIdx = Number(Object.entries(id2label).find(([, v]) => /contradict/i.test(String(v)))?.[0] ?? 0);
     const one = async (p: string, h: string): Promise<number> => {

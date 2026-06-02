@@ -10,3 +10,8 @@ corpus/files/
 corpus/review.jsonl
 corpus/nli-pairs.jsonl
 corpus/review-code.jsonl
+
+# fine-tuned model artifacts (large; regenerable via training/)
+training/finetuned-nli/
+training/*-onnx/
+__pycache__/

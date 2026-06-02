@@ -1,0 +1,8 @@
+# torch is installed separately with the CPU wheel:
+#   pip install --user torch --index-url https://download.pytorch.org/whl/cpu
+sentence-transformers==2.7.0
+optimum[exporters]
+onnx
+onnxruntime
+sentencepiece
+protobuf
