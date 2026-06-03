@@ -52,7 +52,8 @@ export function extractReferents(raw: string): CodeReferent[] {
   const pathRe = /(?:\.{0,2}\/)[\w@./*-]+|\b[\w-]+\/[\w@./*-]+/g;
   while ((m = pathRe.exec(outside)) !== null) {
     const v = m[0].trim();
-    if (v.length > 2 && !/^https?:/.test(v)) add('path', v, 0.6);
+    // 순수 영어 'word/word'는 경로가 아니라 구문(and/or, input/output, client/server) — 가짜 referent 차단.
+    if (v.length > 2 && !/^https?:/.test(v) && !/^[A-Za-z]+\/[A-Za-z]+$/.test(v)) add('path', v, 0.6);
   }
 
   return [...found.values()];

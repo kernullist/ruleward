@@ -100,6 +100,54 @@ default on.
   scored. This is the real fix.
 - **Then** AllNLI-scale training on a GPU (below) for the residual genuine pairs.
 
+## v2 candidate selection: subject + polarity gating (the fix)
+
+The 326 → 149 gate above only removed non-rule *content*; the real problem was
+*which pairs we score at all*. v2 replaces the loose lexical topic-gate with a
+**shared-subject** requirement and drops permissions:
+
+- **Shared concrete subject.** A pair is scored only when both rules constrain
+  the *same* code referent (a backtick object: `` `fetch` ``, `` `ParamSet` ``, a
+  command, a path). Rules with no reliable referent are not compared at all —
+  referent-less prose was the entire FP surface. This kills the
+  complementary-step, unrelated-pair, and *different-object* prohibit/require
+  classes at once (e.g. "never use `tower run`" vs "always use `tower-mcp`" —
+  different objects, so never compared).
+- **Polarity awareness.** Shared subject + opposing polarity (require ⟂ prohibit)
+  is reported as `반대극성`; same-polarity antonymic pairs ("make `Foo` small" vs
+  "make `Foo` large") as `값 대립`. Both still confirmed by NLI.
+- **No permissions.** `MAY` ("a `ParamSet` *can* take any `SystemParam`") is
+  excluded — a permission cannot contradict anything, and descriptive "X can be Y"
+  prose was the main residual FP.
+- **Referent hygiene.** `extractReferents` no longer mistakes English
+  slash-phrases ("and/or", "input/output") for paths — they had created fake
+  shared subjects between unrelated rules.
+
+**Result on the same 60 real files** (`bench:real --semantic`):
+
+| candidate gate | nli findings | mean/file |
+|---|---|---|
+| topic-token (v1) | 326 | 5.50 |
+| + table / long-prose skip | 149 | 2.55 |
+| + shared-subject + polarity | 8 | 0.13 |
+| + drop `MAY` permissions | 1 | 0.02 |
+| + referent hygiene (and/or) | **0** (zero-shot) · **1** (fine-tuned) | ~0 |
+
+The shipped **zero-shot default now produces zero false positives across the 60
+files**. The more aggressive fine-tuned model leaves a single FP: two
+documentation sentences about `ParamSet` in a tutorial-style `CLAUDE.md` that is
+*already* flagged by `bloat/token-budget`, where the purpose-clauses "to ensure" /
+"to avoid" are mis-read as directives (an upstream modality limit, not the gate).
+
+**Trade-off & status.** The tier now only flags **referent-anchored**
+contradictions; pure-prose value-opposition ("keep functions small" vs "prefer
+large functions") is no longer detected — that was precisely the FP surface, so
+the narrower scope is deliberate. Precision on the real corpus is now strong, but
+**recall is uncharacterized** (these 60 files contain few if any genuine
+contradictions), so the tier stays **opt-in (`--semantic`), `info` severity, off
+by default** — now a *precision-defensible* feature rather than a noise source.
+Promoting it to default-on awaits a labeled recall corpus.
+
 ## Caveats / improving precision further
 
 - 340 synthetic pairs alone overfit the templates — mix in SNLI + MNLI ("AllNLI").

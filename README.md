@@ -20,7 +20,7 @@ ruleward is **code-aware**: it reads your actual source to catch rules that refe
 | conflict | `setting-collision` | error | Same-scope rules set one option to different values (tabs vs spaces) |
 | conflict | `scoped-override` | info | A narrower scope overrides a broader one (intentional? worth a look) |
 | conflict | `prohibit-vs-require` | error | The same import target is both forbidden and required |
-| conflict | `nli-contradiction` | info · opt-in | Natural-language contradiction (needs `--semantic`; experimental) |
+| conflict | `nli-contradiction` | info · opt-in | Natural-language contradiction on a shared referent (needs `--semantic`) |
 | duplication | `redundant-with-config` | warning | A rule restates what package.json / tsconfig / Prettier already enforces |
 | duplication | `rule-rule` | warning · info | Exact or near-duplicate rules, across files |
 | bloat | `token-budget` | warning | Always-on instructions exceed the token budget |
@@ -111,9 +111,9 @@ Each rule file is parsed into a normalized **Instruction IR** via a real Markdow
 
 ### Semantic conflicts (optional)
 
-`ruleward check --semantic` enables an experimental tier that uses a local NLI model (via [transformers.js](https://github.com/xenova/transformers.js), downloaded on first use) to flag natural-language contradictions that don't reduce to a settings collision — e.g. *"keep functions small"* vs *"prefer large, comprehensive functions"*. It is opt-in, reported at `info` severity, and never fails CI. Run `npm run bench:nli` to see its precision/recall on the labeled set.
+`ruleward check --semantic` enables an optional tier that uses a local NLI model (via [transformers.js](https://github.com/xenova/transformers.js), downloaded on first use) to flag natural-language contradictions that don't reduce to a settings collision — e.g. *"always use `fetch`"* vs *"never use `fetch`, use `axios`"*. It is opt-in, reported at `info` severity, and never fails CI. Run `npm run bench:nli` to see its precision/recall on the labeled set.
 
-**Status: experimental, off by default — and staying that way for now.** On a labeled set it reaches ~83% precision after fine-tuning, but validated against 60 real rule files (`npm run bench:real -- --semantic`) it over-fires badly: ~2.5 mostly-false findings per file (complementary setup steps, unrelated same-jargon lines, and compatible *prohibit/require* pairs all read as contradictions). Pairwise NLI over atomized rule content is the wrong shape for this; promoting the tier is blocked on stronger candidate selection, not more training. See [`docs/nli-finetune.md`](docs/nli-finetune.md) for the full data and verdict.
+**Status: opt-in, off by default.** Early versions over-fired on real files, so candidate selection was redesigned to only compare rules that constrain the **same concrete referent** (a backtick object both rules name) with conflicting force or value — referent-less prose, complementary steps, and different-object pairs are no longer scored. Validated against 60 real rule files (`npm run bench:real -- --semantic`), the shipped zero-shot default now produces **zero false positives** (the fine-tuned model leaves one, in a file already flagged as over-budget). It stays opt-in because recall is uncharacterized — it catches referent-anchored contradictions, not pure-prose ones. See [`docs/nli-finetune.md`](docs/nli-finetune.md) for the full progression (326 → 0 findings) and rationale.
 
 ## Project layout
 
@@ -135,7 +135,7 @@ Design notes and rationale live in [`DESIGN.md`](DESIGN.md) and [`docs/`](docs/)
 
 - One `settingKV` value is extracted per rule (e.g. "2-space indentation" maps to `style.indent`, not also `indentSize`).
 - Declaratively phrased settings ("Maximum line length is 100 characters.") may be classified as narrative, though the setting is still extracted.
-- The `--semantic` (NLI) tier is experimental and over-fires on real files (~2.5 mostly-false `info` findings/file); it is off by default and not yet promotable. See [`docs/nli-finetune.md`](docs/nli-finetune.md).
+- The `--semantic` (NLI) tier only flags contradictions anchored to a **shared code referent** (two rules constraining the same backtick object); pure-prose contradictions are out of scope by design. Opt-in, off by default. See [`docs/nli-finetune.md`](docs/nli-finetune.md).
 
 ## Development
 

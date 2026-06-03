@@ -36,4 +36,9 @@ describe('extractReferents', () => {
     const r = extractReferents('inject via `io.dropwizard.jobs`');
     expect(r.some((x) => x.kind === 'path')).toBe(false);
   });
+
+  it('does not treat an English slash-phrase (and/or) as a path', () => {
+    const r = extractReferents('All features must have unit and/or functional tests');
+    expect(r.some((x) => x.kind === 'path')).toBe(false);
+  });
 });
