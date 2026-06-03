@@ -13,6 +13,8 @@ import { DEFAULT_SETTINGS } from '../config';
 import { checkConflicts } from '../analyze/engines/conflict';
 import { checkDuplication } from '../analyze/engines/duplication';
 import { checkBloat } from '../analyze/engines/bloat';
+import { checkSemanticConflict } from '../analyze/engines/semanticConflict';
+import { getNliScorer, type NliScorer } from '../semantic/nli';
 import type { RuleFile, Scope, ParsedFile, FileFormat } from '../types';
 import type { AnalysisContext } from '../analyze/context';
 import type { ConfigFacts } from '../analyze/configFacts';
@@ -65,7 +67,16 @@ async function main(): Promise<void> {
   const review: Array<Record<string, unknown>> = [];
   const reviewCount: Record<string, number> = {};
 
-  for (const f of files) {
+  // --semantic: fine-tune NLI 모델(RULEWARD_NLI_MODEL)로 의미 충돌도 측정. 느려서 표본 한정.
+  const SEMANTIC = process.argv.includes('--semantic');
+  let scorer: NliScorer | null = null;
+  if (SEMANTIC) {
+    scorer = await getNliScorer();
+    console.log(`semantic mode: NLI model ${scorer ? 'loaded' : 'UNAVAILABLE (set RULEWARD_NLI_MODEL)'}`);
+  }
+  const work = SEMANTIC ? files.slice(0, 60) : files;
+
+  for (const f of work) {
     const hash = f.replace(/\.md$/, '');
     const meta = metas[hash];
     const body = await readFile(path.join(FILES, f), 'utf-8');
@@ -81,6 +92,7 @@ async function main(): Promise<void> {
     totalInstr += ctx.instructions.length;
 
     const diags: Diagnostic[] = [...checkConflicts(ctx), ...checkDuplication(ctx), ...checkBloat(ctx)];
+    if (scorer) diags.push(...(await checkSemanticConflict(ctx, scorer)));
     findingsPerFile.push(diags.length);
     if (diags.length > 0) filesWithFindings++;
 
@@ -93,7 +105,7 @@ async function main(): Promise<void> {
     }
   }
 
-  const n = files.length;
+  const n = work.length;
   findingsPerFile.sort((a, b) => a - b);
   const mean = findingsPerFile.reduce((a, b) => a + b, 0) / n;
   const pct = (x: number): string => `${((x / n) * 100).toFixed(0)}%`;

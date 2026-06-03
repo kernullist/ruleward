@@ -30,4 +30,16 @@ describe('checkSemanticConflict (candidate gen + gating, mock scorer)', () => {
     const d = await checkSemanticConflict(ctx, spy);
     expect(d.length).toBe(0); // 둘 다 style.indent → Tier-0가 담당
   });
+
+  it('skips markdown-table rows and long prose (not rule-like; real-corpus FP guard)', async () => {
+    const body = `- | Step | Always validate inputs |\n- Always ${'validate handle process audit '.repeat(12)}inputs\n`;
+    const ctx = makeCtx([parsedFile(body)]);
+    let calls = 0;
+    const spy: NliScorer = async () => {
+      calls += 1;
+      return 0.99;
+    };
+    expect((await checkSemanticConflict(ctx, spy)).length).toBe(0);
+    expect(calls).toBe(0);
+  });
 });

@@ -47,10 +47,64 @@ RULEWARD_NLI_MODEL=/abs/path/training/finetuned-nli-onnx npm run bench:nli
 The fine-tuned model is **not committed** (large; gitignored) — regenerate via
 the steps above. The shipped default remains the zero-shot Xenova model.
 
+## Real-corpus validation (2026-06): the fine-tune did **not** generalize
+
+We did exactly what the caveat below says — ran the fine-tuned model over the
+real corpus before promoting — and the result is a clear **no-go**:
+
+```bash
+RULEWARD_NLI_MODEL=/abs/path/training/finetuned-nli-onnx npm run bench:real -- --semantic
+```
+
+**326 `nli-contradiction` findings across 60 real files** (mean 5.5/file, max
+176 in one file). Hand-inspecting the sample (`corpus/review.jsonl`), nearly all
+are false positives, in three classes:
+
+1. **Non-rule content mis-classified as a directive.** A Markdown table cell
+   like `| Env var | required |` trips the `required` modality trigger → graded
+   `MUST` → fed to NLI → compared against other table rows at 1.00 "contradiction".
+2. **Complementary steps read as opposites.** *"Create `FooService` with
+   `PrismaService`"* ⟂ *"Create `FooController` with `@ApiTags()`"* scored 0.98 —
+   they are sequential setup steps, not a contradiction.
+3. **Topic gate too permissive.** Two unrelated sentences sharing one jargon
+   token (*"Type `/armature` to load the guide"* vs any other `armature` line)
+   pass the gate and the model confidently calls them contradictory.
+
+**Why the labeled eval (83%) lied:** it used ~10 clean, curated, declarative
+pairs. Real rule files are messy — tables, multi-clause prose, ordered steps —
+and pairwise NLI over *atomized* rule content is fundamentally ill-posed. The
+83% precision did not survive contact with real data.
+
+**Mitigation shipped** (`semanticConflict.ts` candidate gate): skip table rows
+(`|`) and long prose (> 30 tokens). Measured effect: **326 → 149 findings**
+(mean 5.5 → 2.55/file, max 176 → 73) — it removes FP class (1) but **not**
+(2)/(3), which are inherent to pairwise NLI. The post-gate sample is still
+dominated by FPs, including a fourth pattern worth naming:
+
+4. **Compatible prohibit/require pairs.** *"NEVER use Tower CLI commands"* ⟂
+   *"ALWAYS use `tower-mcp` instead"* scores 1.00 — but they intentionally
+   reinforce each other. `ALWAYS`/`NEVER` + a shared subject reads as a
+   contradiction lexically while being complementary in intent. (The
+   deterministic `prohibit-vs-require` engine handles the *genuine* version of
+   this via settingKV; pairwise NLI cannot tell the two apart.)
+
+At mean 2.55 findings/file of mostly-FP `info`, this is still far too noisy to
+default on.
+
+**Verdict: the semantic tier stays opt-in / experimental. Default is unchanged
+(off).** Promotion is blocked on two things, in order:
+
+- **Stronger candidate selection, not more training.** Only compare *opposing-
+  polarity directives about the same subject* (e.g. require-vs-prohibit on one
+  settingKV-like target) — most of the 326 are pairs that should never have been
+  scored. This is the real fix.
+- **Then** AllNLI-scale training on a GPU (below) for the residual genuine pairs.
+
 ## Caveats / improving precision further
 
 - 340 synthetic pairs alone overfit the templates — mix in SNLI + MNLI ("AllNLI").
-- The residual FP ("unit tests" vs "integration tests") needs more testing-topic
-  pairs in the generator (`src/semantic/finetune-data.ts`).
-- Validate on the real corpus (`npm run bench:real`) before promoting the tier
-  out of "experimental", and prefer a GPU for AllNLI-scale training.
+- The residual labeled FP ("unit tests" vs "integration tests") needs more
+  testing-topic pairs in the generator (`src/semantic/finetune-data.ts`).
+- Validate on the real corpus (`npm run bench:real -- --semantic`) before
+  promoting the tier — as the section above shows, the labeled eval is not
+  enough — and prefer a GPU for AllNLI-scale training.

@@ -46,7 +46,12 @@ export async function checkSemanticConflict(
   threshold: number = DEFAULT_THRESHOLD
 ): Promise<Diagnostic[]> {
   const rules = ctx.instructions.filter(
-    (i) => i.atomicity !== 'narrative' && i.directive !== 'INFO' && i.normalized.length > 0
+    (i) =>
+      i.atomicity !== 'narrative' &&
+      i.directive !== 'INFO' &&
+      i.normalized.length > 0 &&
+      i.tokens <= 30 && // 긴 산문/다절 문장은 NLI 비교 대상이 아님 (실코퍼스 FP 주범)
+      !i.raw.includes('|') // 마크다운 테이블 행 제외 ('required' 같은 트리거어로 오분류되어 들어오는 것 차단)
   );
   if (rules.length > MAX_RULES) return [];
 
